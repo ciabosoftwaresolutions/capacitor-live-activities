@@ -74,7 +74,7 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      - name: Bump version (${{ github.event.inputs.release_type }})
+      - name: Bump version
         run: npm version ${{ github.event.inputs.release_type }} -m "chore: release v%s"
 
       - name: Push version commit and tag
