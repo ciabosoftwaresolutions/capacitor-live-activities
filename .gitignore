@@ -1,0 +1,19 @@
+node_modules/
+dist/
+*.js.map
+.DS_Store
+
+# iOS
+ios/Pods/
+ios/*.xcworkspace
+ios/DerivedData/
+
+# Android
+android/.gradle/
+android/build/
+android/local.properties
+*.iml
+
+# Xcode
+*.xcuserstate
+xcuserdata/

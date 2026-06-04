@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2017",
+    "module": "ES2020",
+    "moduleResolution": "bundler",
+    "lib": ["ES2017", "DOM"],
+    "declaration": true,
+    "noImplicitAny": true,
+    "inlineSources": true,
+    "sourceMap": true,
+    "rootDir": "src",
+    "outDir": "dist/esm"
+  },
+  "include": ["src"]
+}

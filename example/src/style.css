@@ -1,0 +1,253 @@
+/* ------------------------------------------------------------------ */
+/* Reset & tokens                                                       */
+/* ------------------------------------------------------------------ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0f0f13;
+  --surface:   #1a1a22;
+  --border:    #2e2e3a;
+  --accent:    #7c6af7;
+  --accent-h:  #9b8fff;
+  --ok:        #34d399;
+  --err:       #f87171;
+  --warn:      #fbbf24;
+  --text:      #e2e2ef;
+  --text-muted:#8b8ba7;
+  --radius:    12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* ------------------------------------------------------------------ */
+/* Layout                                                               */
+/* ------------------------------------------------------------------ */
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px 16px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Header                                                               */
+/* ------------------------------------------------------------------ */
+header {
+  padding: 24px 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+header h1 { font-size: 1.5rem; font-weight: 700; }
+
+/* ------------------------------------------------------------------ */
+/* Badge                                                                */
+/* ------------------------------------------------------------------ */
+.badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.badge.ios     { background: #1c2b4a; border-color: #2a4a8a; color: #82b4ff; }
+.badge.android { background: #1a3626; border-color: #286840; color: #5dd68a; }
+.badge.web     { background: #2b2020; border-color: #6b3030; color: #f08080; }
+
+/* ------------------------------------------------------------------ */
+/* Card                                                                 */
+/* ------------------------------------------------------------------ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.card h2 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Row (for key/value pairs)                                            */
+/* ------------------------------------------------------------------ */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.label { font-size: 0.9rem; color: var(--text-muted); }
+.value { font-size: 0.9rem; font-weight: 600; }
+.value.pending { color: var(--text-muted); }
+.value.ok      { color: var(--ok); }
+.value.err     { color: var(--err); }
+
+/* ------------------------------------------------------------------ */
+/* Inputs                                                               */
+/* ------------------------------------------------------------------ */
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+input[type="text"],
+input[type="number"],
+select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+input:focus, select:focus { border-color: var(--accent); }
+
+/* ------------------------------------------------------------------ */
+/* Buttons                                                              */
+/* ------------------------------------------------------------------ */
+button {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 9px 18px;
+  transition: background 0.15s, border-color 0.15s;
+}
+button:hover { background: var(--border); }
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+button.primary:hover { background: var(--accent-h); border-color: var(--accent-h); }
+
+button.danger {
+  background: #3d1f1f;
+  border-color: #7a3030;
+  color: var(--err);
+}
+button.danger:hover { background: #4f2424; }
+
+button.small {
+  font-size: 0.75rem;
+  padding: 5px 12px;
+  align-self: flex-end;
+}
+
+/* ------------------------------------------------------------------ */
+/* Result                                                               */
+/* ------------------------------------------------------------------ */
+.result {
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid;
+  word-break: break-all;
+}
+.result.hidden  { display: none; }
+.result.ok  { background: #0d2b1e; border-color: #286840; color: var(--ok); }
+.result.err { background: #2b0d0d; border-color: #7a3030; color: var(--err); }
+
+/* ------------------------------------------------------------------ */
+/* Activity list                                                        */
+/* ------------------------------------------------------------------ */
+.activity-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.activity-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+.activity-list .empty { color: var(--text-muted); font-style: italic; }
+.act-id   { font-family: monospace; color: var(--text-muted); }
+.act-type { flex: 1; color: var(--text); }
+.act-state { font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
+.state-active    { color: var(--ok); }
+.state-ended     { color: var(--text-muted); }
+.state-dismissed { color: var(--err); }
+
+/* ------------------------------------------------------------------ */
+/* Hint text                                                            */
+/* ------------------------------------------------------------------ */
+.hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------ */
+/* Token display box                                                    */
+/* ------------------------------------------------------------------ */
+.token-box {
+  font-family: monospace;
+  font-size: 0.72rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  word-break: break-all;
+  color: var(--accent-h);
+  user-select: all;
+}
+.token-box.hidden { display: none; }
+
+/* ------------------------------------------------------------------ */
+/* Log                                                                  */
+/* ------------------------------------------------------------------ */
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.log-line {
+  font-size: 0.78rem;
+  font-family: monospace;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border-left: 3px solid var(--border);
+  background: var(--bg);
+}
+.log-line.ok    { border-color: var(--ok);    color: var(--ok); }
+.log-line.err   { border-color: var(--err);   color: var(--err); }
+.log-line.event { border-color: var(--accent); color: var(--accent-h); }
+.log-line.info  { border-color: var(--border); color: var(--text-muted); }

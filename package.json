@@ -1,0 +1,79 @@
+{
+  "name": "@ciabosoftwaresolutions/capacitor-live-activities",
+  "version": "0.1.0",
+  "description": "Capacitor plugin for iOS Live Activities (Dynamic Island + Lock Screen) and Android Live Updates notifications",
+  "main": "dist/plugin.cjs.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "unpkg": "dist/plugin.js",
+  "files": [
+    "android/src/main/",
+    "android/build.gradle",
+    "dist/",
+    "ios/Plugin/",
+    "CapacitorLiveActivities.podspec"
+  ],
+  "type": "module",
+  "author": "Ciabo Software Solutions",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ciabosoftwaresolutions/capacitor-live-activities.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ciabosoftwaresolutions/capacitor-live-activities/issues"
+  },
+  "homepage": "https://github.com/ciabosoftwaresolutions/capacitor-live-activities#readme",
+  "keywords": [
+    "capacitor",
+    "plugin",
+    "live-activities",
+    "live-updates",
+    "dynamic-island",
+    "ios",
+    "android",
+    "notifications"
+  ],
+  "scripts": {
+    "build": "npm run clean && npm run docgen && tsc && rollup -c rollup.config.js",
+    "clean": "rimraf ./dist",
+    "docgen": "docgen --api LiveActivitiesPlugin --project tsconfig.docgen.json --output-readme README.md --output-json dist/docs.json",
+    "lint": "eslint . --ext ts",
+    "fmt": "prettier \"**/*.{css,html,ts,js,java}\" --write",
+    "verify": "npm run verify:ios && npm run verify:android && npm run verify:web",
+    "verify:ios": "cd ios && pod install && xcodebuild -workspace Plugin.xcworkspace -scheme Plugin -destination generic/platform=iOS build | xcpretty",
+    "verify:android": "cd android && ./gradlew clean build test",
+    "verify:web": "npm run build"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/docgen": "^0.3.1",
+    "@capacitor/ios": "^8.4.0",
+    "@ionic/eslint-config": "^0.4.0",
+    "@ionic/prettier-config": "^4.0.0",
+    "@ionic/swiftlint-config": "^1.1.2",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "prettier-plugin-java": "^2.6.4",
+    "rimraf": "^6.0.1",
+    "rollup": "^4.21.3",
+    "typescript": "^5.5.4"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^8.0.0"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
+  },
+  "swiftlint": "@ionic/swiftlint-config",
+  "prettier": "@ionic/prettier-config",
+  "eslintConfig": {
+    "extends": "@ionic/eslint-config/recommended"
+  }
+}
