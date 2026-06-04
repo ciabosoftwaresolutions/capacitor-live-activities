@@ -29,25 +29,10 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-  build-android:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: 21
-          distribution: temurin
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: cd android && ./gradlew build
-
   publish:
     # Only runs when manually triggered via workflow_dispatch
     if: github.event_name == 'workflow_dispatch'
-    needs: [build-web, build-android]
+    needs: [build-web]
     runs-on: ubuntu-latest
     permissions:
       contents: write  # needed to push the version commit + tag back to the repo
