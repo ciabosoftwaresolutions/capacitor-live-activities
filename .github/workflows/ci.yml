@@ -55,10 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Use a PAT so the version commit can trigger status checks.
-          # Falls back to GITHUB_TOKEN if the secret isn't set (commit
-          # will still push but won't re-trigger workflows).
-          token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -75,7 +72,7 @@ jobs:
       - run: npm run build
 
       - name: Bump version
-        run: npm version ${{ github.event.inputs.release_type }} -m "chore: release v%s"
+        run: 'npm version ${{ github.event.inputs.release_type }} -m "chore: release v%s"'
 
       - name: Push version commit and tag
         run: git push --follow-tags
