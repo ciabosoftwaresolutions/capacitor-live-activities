@@ -1,13 +1,24 @@
 package com.ciabosoftwaresolutions.liveactivities
 
+import android.os.Build
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 
-@CapacitorPlugin(name = "LiveActivities")
+@CapacitorPlugin(
+    name = "LiveActivities",
+    permissions = [
+        Permission(
+            alias = "notifications",
+            strings = ["android.permission.POST_NOTIFICATIONS"]
+        )
+    ]
+)
 class LiveActivitiesPlugin : Plugin() {
 
     private lateinit var manager: LiveActivitiesManager
@@ -16,10 +27,54 @@ class LiveActivitiesPlugin : Plugin() {
         manager = LiveActivitiesManager(context)
     }
 
+    // -------------------------------------------------------------------------
+    // Permissions
+    // -------------------------------------------------------------------------
+
+    @PluginMethod
+    override fun checkPermissions(call: PluginCall) {
+        val result = JSObject()
+        result.put("notifications", getNotificationPermissionState())
+        call.resolve(result)
+    }
+
+    @PluginMethod
+    override fun requestPermissions(call: PluginCall) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (getPermissionState("notifications") != com.getcapacitor.PermissionState.GRANTED) {
+                requestPermissionForAlias("notifications", call, "permissionsCallback")
+                return
+            }
+        }
+        val result = JSObject()
+        result.put("notifications", getNotificationPermissionState())
+        call.resolve(result)
+    }
+
+    @PermissionCallback
+    private fun permissionsCallback(call: PluginCall) {
+        val result = JSObject()
+        result.put("notifications", getNotificationPermissionState())
+        call.resolve(result)
+    }
+
+    private fun getNotificationPermissionState(): String {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return "granted"
+        return when (getPermissionState("notifications")) {
+            com.getcapacitor.PermissionState.GRANTED -> "granted"
+            com.getcapacitor.PermissionState.DENIED  -> "denied"
+            else                                      -> "prompt"
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Plugin methods
+    // -------------------------------------------------------------------------
+
     @PluginMethod
     fun isSupported(call: PluginCall) {
         val result = JSObject()
-        result.put("supported", true) // Android falls back to sticky notification on older versions
+        result.put("supported", true)
         call.resolve(result)
     }
 

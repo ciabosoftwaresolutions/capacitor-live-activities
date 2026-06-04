@@ -98,6 +98,37 @@
         <div id="end-result" class="result hidden"></div>
       </section>
 
+      <!-- Timer demo -->
+      <section class="card">
+        <h2>Timer (iOS auto-countdown)</h2>
+        <p class="hint">Sets <code>timerEnd</code> — the widget counts down and animates the progress bar automatically. No JS updates needed.</p>
+        <label>Duration (seconds)
+          <select id="in-timer-duration">
+            <option value="150">2:30 min</option>
+            <option value="300">5:00 min</option>
+            <option value="600">10:00 min</option>
+            <option value="30">0:30 sec (quick test)</option>
+            <option value="60">1:00 min</option>
+          </select>
+        </label>
+        <label>Title
+          <input id="in-timer-title" type="text" value="Pizza on the way" />
+        </label>
+        <label>Subtitle
+          <input id="in-timer-subtitle" type="text" value="Arriving in" />
+        </label>
+        <label>Icon
+          <select id="in-timer-icon">
+            <option value="fork.knife">🍴 fork.knife</option>
+            <option value="car.fill">🚗 car.fill</option>
+            <option value="timer">⏱ timer</option>
+            <option value="shippingbox.fill">📦 shippingbox.fill</option>
+          </select>
+        </label>
+        <button id="btn-start-timer" class="primary">▶ Start Timer Activity</button>
+        <div id="timer-result" class="result hidden"></div>
+      </section>
+
       <!-- Push token -->
       <section class="card">
         <h2>Push token (optional — server-side updates)</h2>

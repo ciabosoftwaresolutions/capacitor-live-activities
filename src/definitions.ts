@@ -23,6 +23,24 @@ export interface LiveActivityState {
   progress?: number;
   /** Optional SF Symbol name (iOS) or Android drawable name for a status icon. */
   icon?: string;
+  /**
+   * iOS only — Unix timestamp (seconds since epoch) when the timer ends.
+   * When set, the widget renders a live countdown and an auto-animating
+   * progress bar. The system updates the display every second automatically —
+   * no `update()` calls needed from JavaScript.
+   *
+   * Example — start a 2m 30s countdown:
+   * ```typescript
+   * timerEnd: Date.now() / 1000 + 150
+   * ```
+   */
+  timerEnd?: number;
+  /**
+   * iOS only — Unix timestamp when the timer started.
+   * Used alongside `timerEnd` to compute the progress ring fill.
+   * Defaults to `Date.now()` at the moment `start()` is called if omitted.
+   */
+  timerStart?: number;
   /** Arbitrary extra data your Widget Extension can read. */
   [key: string]: unknown;
 }

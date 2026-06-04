@@ -594,12 +594,14 @@ Keep this small; use `state` for anything that updates.
 
 Dynamic data for a Live Activity — can be pushed via `update()` at any time.
 
-| Prop           | Type                | Description                                                               |
-| -------------- | ------------------- | ------------------------------------------------------------------------- |
-| **`title`**    | <code>string</code> | Primary headline shown on the Lock Screen / Dynamic Island.               |
-| **`subtitle`** | <code>string</code> | Secondary line of text.                                                   |
-| **`progress`** | <code>number</code> | Optional progress value between 0.0 and 1.0.                              |
-| **`icon`**     | <code>string</code> | Optional SF Symbol name (iOS) or Android drawable name for a status icon. |
+| Prop             | Type                | Description                                                                                                                                                                                                                                                                                                                                            |
+| ---------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`title`**      | <code>string</code> | Primary headline shown on the Lock Screen / Dynamic Island.                                                                                                                                                                                                                                                                                            |
+| **`subtitle`**   | <code>string</code> | Secondary line of text.                                                                                                                                                                                                                                                                                                                                |
+| **`progress`**   | <code>number</code> | Optional progress value between 0.0 and 1.0.                                                                                                                                                                                                                                                                                                           |
+| **`icon`**       | <code>string</code> | Optional SF Symbol name (iOS) or Android drawable name for a status icon.                                                                                                                                                                                                                                                                              |
+| **`timerEnd`**   | <code>number</code> | iOS only — Unix timestamp (seconds since epoch) when the timer ends. When set, the widget renders a live countdown and an auto-animating progress bar. The system updates the display every second automatically — no `update()` calls needed from JavaScript. Example — start a 2m 30s countdown: ```typescript timerEnd: Date.now() / 1000 + 150 ``` |
+| **`timerStart`** | <code>number</code> | iOS only — Unix timestamp when the timer started. Used alongside `timerEnd` to compute the progress ring fill. Defaults to `Date.now()` at the moment `start()` is called if omitted.                                                                                                                                                                  |
 
 
 #### UpdateOptions
@@ -662,6 +664,108 @@ Dynamic data for a Live Activity — can be pushed via `update()` at any time.
 | **`remove`** | <code>() =&gt; any</code> |
 
 </docgen-api>
+
+---
+
+## FAQ — iOS Xcode setup troubleshooting
+
+### "Missing package product 'CapApp-SPM'"
+
+This happens when Xcode loses its reference to the local `CapApp-SPM` package — most commonly after deleting and recreating the `ios/` folder.
+
+**Fix:**
+1. In Xcode: **File → Add Package Dependencies → Add Local...**
+2. Navigate to `ios/App/CapApp-SPM` and click **Add Package**
+3. When prompted for a target, select **none** — `CapApp-SPM` is managed by Capacitor internally
+4. Xcode will resolve the package and the error disappears
+
+---
+
+### "Unable to find module dependency: 'Capacitor'" in AppDelegate
+
+After fixing the `CapApp-SPM` reference above, the `Capacitor` module still needs to be linked to the app target.
+
+**Fix:**
+- Select your **main app target** → **General** → **Frameworks, Libraries, and Embedded Content** → **+** → search for **CapApp-SPM** → **Add**
+
+---
+
+### `npx cap sync` keeps re-adding the plugin to `CapApp-SPM/Package.swift`
+
+When you include the plugin's Swift files directly in the Xcode project (recommended for local development), `npx cap sync` will re-add the plugin to `CapApp-SPM/Package.swift` on every run, causing duplicate symbol errors on the next build.
+
+Run this after every `npx cap sync` to clean it out:
+
+```bash
+cd example && node -e "
+const fs = require('fs');
+const f = 'ios/App/CapApp-SPM/Package.swift';
+let c = fs.readFileSync(f, 'utf8');
+c = c.replace(/,\s*\.package\(name:.*?capacitor-live-activities.*?\)/s, '');
+c = c.replace(/,\s*\.product\(name: \"CiabosoftwaresolutionsCapacitorLiveActivities\".*?\)/s, '');
+fs.writeFileSync(f, c);
+console.log('Cleaned');
+"
+```
+
+Or add it as an npm script in your project's `package.json` so you can run `npm run sync:ios` instead:
+
+```json
+"scripts": {
+  "sync:ios": "npx cap sync ios && node -e \"const fs=require('fs'),f='ios/App/CapApp-SPM/Package.swift';let c=fs.readFileSync(f,'utf8');c=c.replace(/,\\s*\\.package\\(name:.*?capacitor-live-activities.*?\\)/s,'');c=c.replace(/,\\s*\\.product\\(name:\\s*\\\"CiabosoftwaresolutionsCapacitorLiveActivities\\\".*?\\)/s,'');fs.writeFileSync(f,c);console.log('CapApp-SPM cleaned');\""
+}
+```
+
+---
+
+### Plugin not found / "not implemented on ios"
+
+The plugin's Swift files need to be compiled into the app directly. Include them from `node_modules/@ciabosoftwaresolutions/capacitor-live-activities/ios/Plugin/`:
+
+1. Drag `LiveActivitiesPlugin.swift` and `LiveActivityManager.swift` into Xcode
+2. ✅ **Copy items if needed**
+3. **Target Membership:**
+   - `LiveActivityManager.swift` → ✅ main app + ✅ `LiveActivityWidget`
+   - `LiveActivitiesPlugin.swift` → ✅ main app only
+
+---
+
+### "Invalid redeclaration of 'LiveActivityWidgetBundle'"
+
+Xcode generates two files when adding a Widget Extension — delete the generated `LiveActivityWidgetBundle.swift`:
+
+Right-click → **Delete → Move to Trash**
+
+---
+
+### "Plugin with id 'org.jetbrains.kotlin.android' not found" (Android)
+
+Add the Kotlin classpath to the plugin's `android/build.gradle`:
+
+```groovy
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25'
+    }
+}
+```
+
+---
+
+### Notifications not appearing on Android
+
+Call `requestPermissions()` before `start()` on Android 13+:
+
+```typescript
+const { notifications } = await LiveActivities.requestPermissions();
+if (notifications === 'granted') {
+  await LiveActivities.start({ ... });
+}
+```
 
 ---
 

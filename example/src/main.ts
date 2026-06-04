@@ -128,6 +128,7 @@ $('btn-update').addEventListener('click', async () => {
 // -------------------------------------------------------------------------
 
 $('btn-end').addEventListener('click', async () => {
+  clearTimerInterval();
   const activityId = val('in-end-id') || lastActivityId;
   if (!activityId) {
     showResult('end-result', '❌ No activity ID', false);
@@ -150,6 +151,113 @@ $('btn-end').addEventListener('click', async () => {
   } catch (e: any) {
     showResult('end-result', `❌ ${e.message}`, false);
     log(`end error: ${e.message}`, 'err');
+  }
+});
+
+// -------------------------------------------------------------------------
+// Timer demo
+// -------------------------------------------------------------------------
+
+let timerInterval: ReturnType<typeof setInterval> | null = null;
+let timerActivityId = '';
+
+function clearTimerInterval() {
+  if (timerInterval !== null) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+$('btn-start-timer').addEventListener('click', async () => {
+  // Clear any existing timer
+  clearTimerInterval();
+
+  const durationSeconds = parseInt(($('in-timer-duration') as HTMLSelectElement).value);
+  const durationMs      = durationSeconds * 1000;
+  const nowSeconds      = Date.now() / 1000;
+  const endTimeMs       = Date.now() + durationMs;
+  const timerStart      = nowSeconds;
+  const timerEnd        = nowSeconds + durationSeconds;
+
+  const title    = val('in-timer-title');
+  const subtitle = val('in-timer-subtitle') || undefined;
+  const icon     = ($('in-timer-icon') as HTMLSelectElement).value || undefined;
+
+  // Format end time as "Arriving by HH:MM" for Android subtitle
+  const endDate    = new Date(endTimeMs);
+  const endTimeStr = endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const androidSubtitle = subtitle ? `${subtitle} · by ${endTimeStr}` : `By ${endTimeStr}`;
+
+  try {
+    const { activityId } = await LiveActivities.start({
+      attributes: { activityType: 'timer-demo' },
+      state: {
+        title,
+        // iOS uses timerEnd for native countdown; Android shows the end time as text
+        subtitle:  platform === 'android' ? androidSubtitle : subtitle,
+        icon,
+        timerStart,
+        timerEnd,
+        progress:  0,
+      },
+    });
+
+    timerActivityId = activityId;
+    lastActivityId  = activityId;
+    ($('in-update-id') as HTMLInputElement).value = activityId;
+    ($('in-end-id')    as HTMLInputElement).value = activityId;
+    ($('in-token-id')  as HTMLInputElement).value = activityId;
+
+    const mins = Math.floor(durationSeconds / 60);
+    const secs = durationSeconds % 60;
+    showResult('timer-result', `✅ Timer started — ${mins}:${secs.toString().padStart(2,'0')}`);
+    log(`Timer started — ${durationSeconds}s, id=${activityId}`, 'ok');
+    refreshList();
+
+    // ── Android: JS-driven progress updates every 5 s ──────────────────
+    // iOS uses timerEnd natively — no JS updates needed on iOS.
+    if (platform === 'android') {
+      timerInterval = setInterval(async () => {
+        const remaining = endTimeMs - Date.now();
+
+        if (remaining <= 0) {
+          clearTimerInterval();
+          try {
+            await LiveActivities.end({
+              activityId,
+              finalState: { title, subtitle: 'Done!', progress: 1, icon },
+            });
+            log(`Timer ended — id=${activityId}`, 'ok');
+            refreshList();
+          } catch (_) {}
+          return;
+        }
+
+        const progress = 1 - remaining / durationMs;
+        const remSecs  = Math.ceil(remaining / 1000);
+        const m        = Math.floor(remSecs / 60);
+        const s        = remSecs % 60;
+        const remStr   = `${m}:${s.toString().padStart(2, '0')}`;
+
+        try {
+          await LiveActivities.update({
+            activityId,
+            state: {
+              title,
+              subtitle: subtitle ? `${subtitle} · ${remStr} left` : `${remStr} left`,
+              icon,
+              progress,
+              timerStart,
+              timerEnd,
+            },
+          });
+          log(`Timer update — ${remStr} remaining, progress=${progress.toFixed(2)}`, 'info');
+        } catch (_) {}
+      }, 5000); // every 5 s — frequent enough to feel live, light on battery
+    }
+  } catch (e: any) {
+    showResult('timer-result', `❌ ${e.message}`, false);
+    log(`timer start error: ${e.message}`, 'err');
   }
 });
 
