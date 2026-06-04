@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Live Activities — Example</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Header -->
+      <header>
+        <h1>⚡ Live Activities</h1>
+        <p id="platform-badge" class="badge">Detecting platform…</p>
+      </header>
+
+      <!-- Support check -->
+      <section class="card" id="support-card">
+        <h2>Platform support</h2>
+        <div class="row">
+          <span class="label">isSupported</span>
+          <span id="is-supported" class="value pending">—</span>
+        </div>
+        <div class="row">
+          <span class="label">areActivitiesEnabled</span>
+          <span id="activities-enabled" class="value pending">—</span>
+        </div>
+        <button id="btn-check">Check support</button>
+      </section>
+
+      <!-- Start -->
+      <section class="card">
+        <h2>1 · Start a Live Activity</h2>
+        <label>Activity type
+          <input id="in-type" type="text" value="order-tracking" />
+        </label>
+        <label>Title
+          <input id="in-title" type="text" value="Your order is on the way" />
+        </label>
+        <label>Subtitle
+          <input id="in-subtitle" type="text" value="3 stops away" />
+        </label>
+        <label>Progress (0–1)
+          <input id="in-progress" type="number" min="0" max="1" step="0.05" value="0.4" />
+        </label>
+        <label>Icon (SF Symbol / drawable)
+          <input id="in-icon" type="text" value="shippingbox.fill" />
+        </label>
+        <button id="btn-start" class="primary">▶ Start</button>
+        <div id="start-result" class="result hidden"></div>
+      </section>
+
+      <!-- Update -->
+      <section class="card">
+        <h2>2 · Update</h2>
+        <label>Activity ID
+          <input id="in-update-id" type="text" placeholder="Filled automatically after Start" />
+        </label>
+        <label>Title
+          <input id="in-update-title" type="text" value="Almost there!" />
+        </label>
+        <label>Subtitle
+          <input id="in-update-subtitle" type="text" value="1 stop away" />
+        </label>
+        <label>Progress (0–1)
+          <input id="in-update-progress" type="number" min="0" max="1" step="0.05" value="0.85" />
+        </label>
+        <label>Alert title (iOS only)
+          <input id="in-alert-title" type="text" value="Order update" />
+        </label>
+        <label>Alert body (iOS only)
+          <input id="in-alert-body" type="text" value="Your order is almost here!" />
+        </label>
+        <button id="btn-update">↻ Update</button>
+        <div id="update-result" class="result hidden"></div>
+      </section>
+
+      <!-- End -->
+      <section class="card">
+        <h2>3 · End</h2>
+        <label>Activity ID
+          <input id="in-end-id" type="text" placeholder="Filled automatically after Start" />
+        </label>
+        <label>Final title
+          <input id="in-end-title" type="text" value="Delivered! 🎉" />
+        </label>
+        <label>Final subtitle
+          <input id="in-end-subtitle" type="text" value="Enjoy your order" />
+        </label>
+        <label>Dismissal policy (iOS)
+          <select id="in-dismissal">
+            <option value="default">default</option>
+            <option value="immediate">immediate</option>
+            <option value="after-delay">after-delay</option>
+          </select>
+        </label>
+        <button id="btn-end" class="danger">■ End</button>
+        <div id="end-result" class="result hidden"></div>
+      </section>
+
+      <!-- Push token -->
+      <section class="card">
+        <h2>Push token (optional — server-side updates)</h2>
+        <p class="hint">
+          iOS: ActivityKit APNs token (no Firebase needed).<br/>
+          Android: FCM device token (returns null without Firebase).
+        </p>
+        <label>Activity ID
+          <input id="in-token-id" type="text" placeholder="Filled automatically after Start" />
+        </label>
+        <button id="btn-get-token">Get token</button>
+        <div id="token-result" class="result hidden"></div>
+        <div id="token-value" class="token-box hidden"></div>
+      </section>
+
+      <!-- Active activities -->
+      <section class="card">
+        <h2>Active activities</h2>
+        <button id="btn-list">⟳ Refresh list</button>
+        <ul id="activity-list" class="activity-list">
+          <li class="empty">No activities yet</li>
+        </ul>
+      </section>
+
+      <!-- Event log -->
+      <section class="card">
+        <h2>Event log</h2>
+        <button id="btn-clear-log" class="small">Clear</button>
+        <div id="log" class="log"></div>
+      </section>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

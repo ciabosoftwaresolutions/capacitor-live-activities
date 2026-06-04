@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2017",
+    "module": "ES2015",
+    "lib": ["ES2017", "DOM"]
+  },
+  "files": ["src/definitions.ts"]
+}
