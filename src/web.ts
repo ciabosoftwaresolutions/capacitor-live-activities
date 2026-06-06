@@ -7,6 +7,7 @@ import type {
   LiveActivitiesPlugin,
   PushTokenResult,
   PushTokenUpdatedEvent,
+  PushToStartTokenUpdatedEvent,
   StartOptions,
   UpdateOptions,
 } from './definitions';
@@ -41,9 +42,15 @@ export class LiveActivitiesWeb extends WebPlugin implements LiveActivitiesPlugin
     return { token: null, type: null };
   }
 
+  async getPushToStartToken(): Promise<PushTokenResult> {
+    return { token: null, type: null };
+  }
+
   async addListener(
-    _eventName: 'activityStateChanged' | 'pushTokenUpdated',
-    _listenerFunc: (event: ActivityStateChangedEvent | PushTokenUpdatedEvent) => void,
+    _eventName: 'activityStateChanged' | 'pushTokenUpdated' | 'pushToStartTokenUpdated',
+    _listenerFunc: (
+      event: ActivityStateChangedEvent | PushTokenUpdatedEvent | PushToStartTokenUpdatedEvent,
+    ) => void,
   ): Promise<PluginListenerHandle> {
     return { remove: async () => {} };
   }

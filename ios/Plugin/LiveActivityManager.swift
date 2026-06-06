@@ -23,6 +23,22 @@ public struct LiveActivityAttributes: ActivityAttributes {
         /// Start of the timer interval. Used to compute the progress ring fill.
         /// Defaults to the moment start() was called if omitted.
         public var timerStart: Date?
+        /// Direction of the timer bar/ring. true = drain (default), false = fill.
+        public var timerCountsDown: Bool?
+        /// Hex color string for the activity background tint (e.g. "1a1a2e" or "#1a1a2e").
+        public var backgroundColor: String?
+        /// Hex color string for progress bars, rings and timer bar. Defaults to white.
+        public var progressColor: String?
+        /// Hex color string for title and subtitle text. Defaults to white.
+        public var textColor: String?
+        /// Hex color string for the SF Symbol icon. Defaults to white.
+        public var iconColor: String?
+        /// Hex color string for the expanded Dynamic Island keyline outline.
+        public var keylineTint: String?
+        /// Thickness in points of the linear progress bar (2–20).
+        public var progressBarHeight: Double?
+        /// Corner radius in points of the linear progress bar.
+        public var progressBarRadius: Double?
         public var extras: [String: AnyCodable]
 
         public init(
@@ -32,6 +48,14 @@ public struct LiveActivityAttributes: ActivityAttributes {
             icon: String? = nil,
             timerEnd: Date? = nil,
             timerStart: Date? = nil,
+            timerCountsDown: Bool? = nil,
+            backgroundColor: String? = nil,
+            progressColor: String? = nil,
+            textColor: String? = nil,
+            iconColor: String? = nil,
+            keylineTint: String? = nil,
+            progressBarHeight: Double? = nil,
+            progressBarRadius: Double? = nil,
             extras: [String: AnyCodable] = [:]
         ) {
             self.title = title
@@ -40,6 +64,14 @@ public struct LiveActivityAttributes: ActivityAttributes {
             self.icon = icon
             self.timerEnd = timerEnd
             self.timerStart = timerStart
+            self.timerCountsDown = timerCountsDown
+            self.backgroundColor = backgroundColor
+            self.progressColor = progressColor
+            self.textColor = textColor
+            self.iconColor = iconColor
+            self.keylineTint = keylineTint
+            self.progressBarHeight = progressBarHeight
+            self.progressBarRadius = progressBarRadius
             self.extras = extras
         }
     }
@@ -109,10 +141,45 @@ public class LiveActivityManager {
     // activityId → Activity<LiveActivityAttributes>
     private var activities: [String: Activity<LiveActivityAttributes>] = [:]
 
+    // Latest push-to-start token (iOS 17.2+), cached as it rotates.
+    private var pushToStartToken: String?
+    private var isObservingPushToStart = false
+
     // MARK: - isSupported
 
     func isSupported() -> Bool {
         ActivityAuthorizationInfo().areActivitiesEnabled
+    }
+
+    // MARK: - Push-to-start token (iOS 17.2+)
+
+    /// Begins observing the type-level push-to-start token. Call once at app
+    /// launch. The token lets your server START a Live Activity remotely,
+    /// without the app having called `start()` first.
+    func startObservingPushToStartToken() {
+        guard !isObservingPushToStart else { return }
+        isObservingPushToStart = true
+
+        if #available(iOS 17.2, *) {
+            Task {
+                for await tokenData in Activity<LiveActivityAttributes>.pushToStartTokenUpdates {
+                    let token = tokenData.map { String(format: "%02x", $0) }.joined()
+                    self.pushToStartToken = token
+                    NotificationCenter.default.post(
+                        name: .liveActivityPushToStartTokenUpdated,
+                        object: nil,
+                        userInfo: ["token": token, "type": "apns"]
+                    )
+                }
+            }
+        }
+    }
+
+    /// Returns the latest cached push-to-start token, or nil if not yet issued
+    /// or unsupported (< iOS 17.2). Listen to `pushToStartTokenUpdated` for the
+    /// value as soon as the system issues it.
+    func getPushToStartToken() -> String? {
+        pushToStartToken
     }
 
     // MARK: - areActivitiesEnabled
@@ -282,7 +349,12 @@ public class LiveActivityManager {
         }
 
         var extras: [String: AnyCodable] = [:]
-        let reserved: Set<String> = ["title", "subtitle", "progress", "icon", "timerEnd", "timerStart"]
+        let reserved: Set<String> = [
+            "title", "subtitle", "progress", "icon",
+            "timerEnd", "timerStart", "timerCountsDown",
+            "backgroundColor", "progressColor", "textColor", "iconColor",
+            "keylineTint", "progressBarHeight", "progressBarRadius"
+        ]
         for (k, v) in dict where !reserved.contains(k) {
             extras[k] = AnyCodable(v)
         }
@@ -300,6 +372,14 @@ public class LiveActivityManager {
             icon: dict["icon"] as? String,
             timerEnd: timerEnd,
             timerStart: timerStart,
+            timerCountsDown: dict["timerCountsDown"] as? Bool,
+            backgroundColor: dict["backgroundColor"] as? String,
+            progressColor: dict["progressColor"] as? String,
+            textColor: dict["textColor"] as? String,
+            iconColor: dict["iconColor"] as? String,
+            keylineTint: dict["keylineTint"] as? String,
+            progressBarHeight: dict["progressBarHeight"] as? Double,
+            progressBarRadius: dict["progressBarRadius"] as? Double,
             extras: extras
         )
     }
@@ -324,6 +404,7 @@ private extension ActivityState {
 extension Notification.Name {
     static let liveActivityStateChanged    = Notification.Name("LiveActivityStateChanged")
     static let liveActivityPushTokenUpdated = Notification.Name("LiveActivityPushTokenUpdated")
+    static let liveActivityPushToStartTokenUpdated = Notification.Name("LiveActivityPushToStartTokenUpdated")
 }
 
 // MARK: - Errors

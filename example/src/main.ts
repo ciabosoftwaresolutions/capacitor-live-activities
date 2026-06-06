@@ -24,6 +24,24 @@ function log(msg: string, type: 'info' | 'ok' | 'err' | 'event' = 'info') {
   logEl.prepend(line);
 }
 
+/**
+ * Reads the shared Appearance (iOS) controls and returns the style fields
+ * to spread into a Live Activity `state`. iOS-only; Android ignores them.
+ */
+function getAppearance() {
+  const useKeyline = ($('in-use-keyline') as HTMLInputElement).checked;
+  const direction  = ($('in-timer-direction') as HTMLSelectElement).value;
+  return {
+    backgroundColor:   ($('in-bg-color')       as HTMLInputElement).value,
+    progressColor:     ($('in-progress-color') as HTMLInputElement).value,
+    textColor:         ($('in-text-color')     as HTMLInputElement).value,
+    iconColor:         ($('in-icon-color')     as HTMLInputElement).value,
+    keylineTint:       useKeyline ? ($('in-keyline-color') as HTMLInputElement).value : undefined,
+    progressBarHeight: parseInt(($('in-bar-height') as HTMLInputElement).value),
+    timerCountsDown:   direction !== 'up',
+  };
+}
+
 // -------------------------------------------------------------------------
 // Boot
 // -------------------------------------------------------------------------
@@ -76,6 +94,7 @@ $('btn-start').addEventListener('click', async () => {
         subtitle: val('in-subtitle') || undefined,
         progress: parseFloat(val('in-progress')) || undefined,
         icon:     val('in-icon') || undefined,
+        ...getAppearance(),
       },
     });
 
@@ -111,6 +130,10 @@ $('btn-update').addEventListener('click', async () => {
         title:    val('in-update-title'),
         subtitle: val('in-update-subtitle') || undefined,
         progress: parseFloat(val('in-update-progress')) || undefined,
+        icon:     val('in-update-icon') || undefined,
+        // Re-send appearance — each update REPLACES the full content state,
+        // so icon/colors reset to defaults if you omit them.
+        ...getAppearance(),
       },
       alertTitle: val('in-alert-title') || undefined,
       alertBody:  val('in-alert-body')  || undefined,
@@ -142,6 +165,7 @@ $('btn-end').addEventListener('click', async () => {
         subtitle: val('in-end-subtitle') || undefined,
         progress: 1.0,
         icon:     'checkmark.circle.fill',
+        ...getAppearance(),
       },
       dismissalPolicy: (document.getElementById('in-dismissal') as HTMLSelectElement).value as any,
     });
@@ -199,6 +223,7 @@ $('btn-start-timer').addEventListener('click', async () => {
         timerStart,
         timerEnd,
         progress:  0,
+        ...getAppearance(),
       },
     });
 
@@ -225,7 +250,7 @@ $('btn-start-timer').addEventListener('click', async () => {
           try {
             await LiveActivities.end({
               activityId,
-              finalState: { title, subtitle: 'Done!', progress: 1, icon },
+              finalState: { title, subtitle: 'Done!', progress: 1, icon, ...getAppearance() },
             });
             log(`Timer ended — id=${activityId}`, 'ok');
             refreshList();
@@ -249,6 +274,7 @@ $('btn-start-timer').addEventListener('click', async () => {
               progress,
               timerStart,
               timerEnd,
+              ...getAppearance(),
             },
           });
           log(`Timer update — ${remStr} remaining, progress=${progress.toFixed(2)}`, 'info');
@@ -339,6 +365,11 @@ async function refreshList() {
 
 $('btn-clear-log').addEventListener('click', () => {
   $('log').innerHTML = '';
+});
+
+// Live-update the progress bar height label
+$('in-bar-height').addEventListener('input', (e) => {
+  $('bar-height-val').textContent = (e.target as HTMLInputElement).value;
 });
 
 // -------------------------------------------------------------------------

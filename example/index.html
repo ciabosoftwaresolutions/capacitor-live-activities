@@ -50,6 +50,41 @@
         <div id="start-result" class="result hidden"></div>
       </section>
 
+      <!-- Shared appearance (iOS) -->
+      <section class="card">
+        <h2>Appearance (iOS)</h2>
+        <p class="hint">Applied to <strong>Start</strong> and <strong>Start Timer</strong>. Colors map to <code>backgroundColor</code>, <code>progressColor</code>, <code>textColor</code>, <code>iconColor</code>, <code>keylineTint</code>.</p>
+        <div class="color-grid">
+          <label>Background
+            <input id="in-bg-color" type="color" value="#1a1a2e" />
+          </label>
+          <label>Progress
+            <input id="in-progress-color" type="color" value="#4ade80" />
+          </label>
+          <label>Text
+            <input id="in-text-color" type="color" value="#ffffff" />
+          </label>
+          <label>Icon
+            <input id="in-icon-color" type="color" value="#4ade80" />
+          </label>
+          <label>Keyline (island border)
+            <input id="in-keyline-color" type="color" value="#4ade80" />
+          </label>
+        </div>
+        <label class="check-row">
+          <input id="in-use-keyline" type="checkbox" checked /> Apply keyline tint
+        </label>
+        <label>Progress bar height: <span id="bar-height-val">8</span> px
+          <input id="in-bar-height" type="range" min="2" max="20" value="8" />
+        </label>
+        <label>Timer bar direction
+          <select id="in-timer-direction">
+            <option value="down">Drain ← (starts full, counts down)</option>
+            <option value="up">Fill → (starts empty, fills up)</option>
+          </select>
+        </label>
+      </section>
+
       <!-- Update -->
       <section class="card">
         <h2>2 · Update</h2>
@@ -64,6 +99,9 @@
         </label>
         <label>Progress (0–1)
           <input id="in-update-progress" type="number" min="0" max="1" step="0.05" value="0.85" />
+        </label>
+        <label>Icon (SF Symbol / drawable)
+          <input id="in-update-icon" type="text" value="checkmark.circle.fill" />
         </label>
         <label>Alert title (iOS only)
           <input id="in-alert-title" type="text" value="Order update" />
@@ -125,6 +163,7 @@
             <option value="shippingbox.fill">📦 shippingbox.fill</option>
           </select>
         </label>
+        <p class="hint">Uses the shared <strong>Appearance (iOS)</strong> settings above.</p>
         <button id="btn-start-timer" class="primary">▶ Start Timer Activity</button>
         <div id="timer-result" class="result hidden"></div>
       </section>

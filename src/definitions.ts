@@ -24,6 +24,45 @@ export interface LiveActivityState {
   /** Optional SF Symbol name (iOS) or Android drawable name for a status icon. */
   icon?: string;
   /**
+   * iOS only — hex color string for the activity background tint.
+   * Applied to the Lock Screen banner and expanded Dynamic Island background.
+   * Accepts 6-digit hex with or without `#` prefix, e.g. `"#1a1a2e"` or `"1a1a2e"`.
+   * Defaults to a dark semi-transparent fill when omitted.
+   */
+  backgroundColor?: string;
+  /**
+   * iOS only — hex color string for the progress bar, progress ring and timer bar.
+   * Defaults to white when omitted.
+   */
+  progressColor?: string;
+  /**
+   * iOS only — hex color string for title and subtitle text.
+   * Defaults to white when omitted.
+   */
+  textColor?: string;
+  /**
+   * iOS only — hex color string for the SF Symbol icon.
+   * Defaults to white when omitted.
+   */
+  iconColor?: string;
+  /**
+   * iOS only — hex color string for the keyline (the thin colored outline that
+   * wraps the **expanded** Dynamic Island). A common way to give the island a
+   * branded, "full-length" colored glow. Defaults to no keyline when omitted.
+   */
+  keylineTint?: string;
+  /**
+   * iOS only — thickness in points of the linear progress bar shown on the
+   * Lock Screen and in the expanded Dynamic Island bottom region.
+   * Range 2–20. Defaults to the system thickness (~4) when omitted.
+   */
+  progressBarHeight?: number;
+  /**
+   * iOS only — corner radius in points applied to the linear progress bar when
+   * `progressBarHeight` is set. Defaults to half the bar height (pill shape).
+   */
+  progressBarRadius?: number;
+  /**
    * iOS only — Unix timestamp (seconds since epoch) when the timer ends.
    * When set, the widget renders a live countdown and an auto-animating
    * progress bar. The system updates the display every second automatically —
@@ -41,6 +80,13 @@ export interface LiveActivityState {
    * Defaults to `Date.now()` at the moment `start()` is called if omitted.
    */
   timerStart?: number;
+  /**
+   * iOS only — direction of the timer progress bar/ring.
+   * - `true` (default) — bar starts **full** and drains right-to-left as time runs out.
+   * - `false` — bar starts **empty** and fills left-to-right as time elapses.
+   * The countdown **text** always shows remaining time regardless of this setting.
+   */
+  timerCountsDown?: boolean;
   /** Arbitrary extra data your Widget Extension can read. */
   [key: string]: unknown;
 }
@@ -108,6 +154,12 @@ export interface PushTokenUpdatedEvent {
   type: 'apns' | 'fcm';
 }
 
+export interface PushToStartTokenUpdatedEvent {
+  /** The push-to-start token — send to your server to launch activities remotely. */
+  token: string;
+  type: 'apns';
+}
+
 export interface ActivityInfo {
   activityId: string;
   activityType: string;
@@ -173,20 +225,41 @@ export interface LiveActivitiesPlugin {
   getPushToken(options: { activityId: string }): Promise<PushTokenResult>;
 
   /**
+   * iOS 17.2+ only — get the **push-to-start** token. Unlike `getPushToken`,
+   * this token is **not tied to a specific activity** — it lets your server
+   * START a brand-new Live Activity remotely, even if the app has never called
+   * `start()`. Ideal for order tracking, appointment reminders, etc.
+   *
+   * Send this token to your server. The system may issue it slightly after
+   * launch, so prefer listening to `pushToStartTokenUpdated` and treat this
+   * getter as a "current value" check.
+   *
+   * Returns `{ token: null }` on iOS < 17.2 and on Android.
+   */
+  getPushToStartToken(): Promise<PushTokenResult>;
+
+  /**
    * Subscribe to Live Activity events.
    *
    * - **`activityStateChanged`** — iOS only. Fired when the system changes the
    *   state of a Live Activity (e.g. the user dismisses it from the Lock Screen).
    *   Payload: `{ activityId: string, activityState: 'active' | 'ended' | 'dismissed' }`
    *
-   * - **`pushTokenUpdated`** — iOS only. Fired when the ActivityKit push token
-   *   for an activity is first issued or rotated. Re-send the new token to your
-   *   server immediately so it can continue delivering APNs updates.
+   * - **`pushTokenUpdated`** — iOS only. Fired when the per-activity ActivityKit
+   *   push token is first issued or rotated. Re-send it to your server so it can
+   *   continue delivering APNs **updates** to that activity.
    *   Payload: `{ activityId: string, token: string, type: 'apns' }`
+   *
+   * - **`pushToStartTokenUpdated`** — iOS 17.2+ only. Fired when the type-level
+   *   push-to-start token is issued or rotated. Re-send it to your server so it
+   *   can **start** new activities remotely.
+   *   Payload: `{ token: string, type: 'apns' }`
    */
   addListener(
-    eventName: 'activityStateChanged' | 'pushTokenUpdated',
-    listenerFunc: (event: ActivityStateChangedEvent | PushTokenUpdatedEvent) => void,
+    eventName: 'activityStateChanged' | 'pushTokenUpdated' | 'pushToStartTokenUpdated',
+    listenerFunc: (
+      event: ActivityStateChangedEvent | PushTokenUpdatedEvent | PushToStartTokenUpdatedEvent,
+    ) => void,
   ): Promise<PluginListenerHandle>;
 
   removeAllListeners(): Promise<void>;

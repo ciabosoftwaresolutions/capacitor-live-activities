@@ -19,11 +19,12 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "end", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getActiveActivities", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPushToken", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getPushToStartToken", returnType: CAPPluginReturnPromise),
     ]
 
     private var stateObserver: NSObjectProtocol?
-
     private var tokenObserver: NSObjectProtocol?
+    private var pushToStartObserver: NSObjectProtocol?
 
     public override func load() {
         stateObserver = NotificationCenter.default.addObserver(
@@ -43,10 +44,25 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
             guard let userInfo = notification.userInfo else { return }
             self?.notifyListeners("pushTokenUpdated", data: userInfo as? [String: Any] ?? [:])
         }
+
+        pushToStartObserver = NotificationCenter.default.addObserver(
+            forName: .liveActivityPushToStartTokenUpdated,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let userInfo = notification.userInfo else { return }
+            self?.notifyListeners("pushToStartTokenUpdated", data: userInfo as? [String: Any] ?? [:])
+        }
+
+        // Begin observing the push-to-start token immediately so the server
+        // can launch activities even before the app calls start().
+        if #available(iOS 16.2, *) {
+            LiveActivityManager.shared.startObservingPushToStartToken()
+        }
     }
 
     deinit {
-        [stateObserver, tokenObserver].compactMap { $0 }.forEach {
+        [stateObserver, tokenObserver, pushToStartObserver].compactMap { $0 }.forEach {
             NotificationCenter.default.removeObserver($0)
         }
     }
@@ -186,6 +202,24 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
         } else {
             // Token may not be available yet — it's emitted via pushTokenUpdated
             // when the system issues it asynchronously after start().
+            call.resolve(["token": NSNull(), "type": "apns"])
+        }
+    }
+
+    // MARK: - getPushToStartToken
+
+    @objc func getPushToStartToken(_ call: CAPPluginCall) {
+        guard #available(iOS 17.2, *) else {
+            // Push-to-start requires iOS 17.2+
+            call.resolve(["token": NSNull(), "type": NSNull()])
+            return
+        }
+
+        let token = LiveActivityManager.shared.getPushToStartToken()
+        if let token = token {
+            call.resolve(["token": token, "type": "apns"])
+        } else {
+            // Not issued yet — listen to pushToStartTokenUpdated for the value.
             call.resolve(["token": NSNull(), "type": "apns"])
         }
     }

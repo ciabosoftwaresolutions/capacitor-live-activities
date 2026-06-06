@@ -214,6 +214,51 @@ button.small {
 }
 
 /* ------------------------------------------------------------------ */
+/* Appearance controls                                                  */
+/* ------------------------------------------------------------------ */
+.subhead {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-h);
+  margin-top: 6px;
+}
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.color-grid label {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.color-grid input[type="color"] {
+  width: 44px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+}
+.check-row {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+.check-row input[type="checkbox"] {
+  width: auto;
+}
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ */
 /* Token display box                                                    */
 /* ------------------------------------------------------------------ */
 .token-box {

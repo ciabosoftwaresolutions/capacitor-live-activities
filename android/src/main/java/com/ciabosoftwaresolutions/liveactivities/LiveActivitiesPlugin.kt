@@ -158,6 +158,17 @@ class LiveActivitiesPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun getPushToStartToken(call: PluginCall) {
+        // Push-to-start is an iOS 17.2+ concept with no Android equivalent.
+        // To start a Live Update from the server on Android, send an FCM data
+        // message and call start() from your FirebaseMessagingService handler.
+        val result = JSObject()
+        result.put("token", JSObject.NULL)
+        result.put("type", JSObject.NULL)
+        call.resolve(result)
+    }
+
+    @PluginMethod
     fun getActiveActivities(call: PluginCall) {
         val activities = manager.getActiveActivities()
         val arr = JSArray()
