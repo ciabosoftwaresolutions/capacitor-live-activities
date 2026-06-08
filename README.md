@@ -12,6 +12,45 @@ If this plugin saves you time, consider buying us a coffee ☕
 
 ---
 
+## Showcase
+
+### iOS — Dynamic Island & Lock Screen
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/images/ios-island-compact-order.jpg" alt="Dynamic Island compact" width="240"/><br/><sub><b>Dynamic Island — compact</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/ios-island-expanded-order.jpg" alt="Dynamic Island expanded" width="240"/><br/><sub><b>Dynamic Island — expanded</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/ios-lockscreen-order.jpg" alt="Lock Screen banner" width="240"/><br/><sub><b>Lock Screen banner</b></sub></td>
+  </tr>
+</table>
+
+### iOS — auto-countdown timer (no JS updates needed)
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/images/ios-island-compact-timer.jpg" alt="Timer compact" width="240"/><br/><sub><b>Compact countdown</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/ios-island-expanded-timer.jpg" alt="Timer expanded" width="240"/><br/><sub><b>Expanded with progress</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/ios-lockscreen-timer.jpg" alt="Timer Lock Screen" width="240"/><br/><sub><b>Lock Screen countdown</b></sub></td>
+  </tr>
+</table>
+
+### Android — Live Updates & progress
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/images/android-progress-start.png" alt="Android progress start" width="240"/><br/><sub><b>Order started</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/android-progress-almost.png" alt="Android progress almost" width="240"/><br/><sub><b>Progress update</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/android-progress-delivered.png" alt="Android delivered" width="240"/><br/><sub><b>Final state</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><img src="docs/images/android-timer-1.png" alt="Android timer" width="240"/><br/><sub><b>Countdown timer</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/android-timer-2.png" alt="Android timer updating" width="240"/><br/><sub><b>Timer updating</b></sub></td>
+    <td align="center" width="33%"></td>
+  </tr>
+</table>
+
+---
+
 ## Platform support
 
 | Feature | iOS | Android |
