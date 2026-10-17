@@ -1,5 +1,6 @@
 package com.ciabosoftwaresolutions.liveactivities
 
+import android.content.Intent
 import android.os.Build
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
@@ -31,14 +32,44 @@ class LiveActivitiesPlugin : Plugin() {
             event.put("activityState", "dismissed")
             notifyListeners("activityStateChanged", event)
         }
-        LiveActivityDismissReceiver.manager = manager
+        LiveActivityReceiver.manager = manager
+
+        LiveActivityActions.listener = { activityId, actionId -> notifyActionPerformed(activityId, actionId) }
+        for ((activityId, actionId) in LiveActivityActions.drain(context)) {
+            notifyActionPerformed(activityId, actionId)
+        }
+        activity?.intent?.let { handleActionIntent(it) }
+    }
+
+    override fun handleOnNewIntent(intent: Intent) {
+        super.handleOnNewIntent(intent)
+        handleActionIntent(intent)
     }
 
     override fun handleOnDestroy() {
-        if (LiveActivityDismissReceiver.manager === manager) {
-            LiveActivityDismissReceiver.manager = null
+        if (LiveActivityReceiver.manager === manager) {
+            LiveActivityReceiver.manager = null
         }
+        LiveActivityActions.listener = null
         super.handleOnDestroy()
+    }
+
+    /** Handles an `opensApp` action button, which launches the app with the ids as extras. */
+    private fun handleActionIntent(intent: Intent) {
+        val activityId = intent.getStringExtra(LiveActivitiesManager.EXTRA_ACTIVITY_ID) ?: return
+        val actionId = intent.getStringExtra(LiveActivitiesManager.EXTRA_ACTION_ID) ?: return
+        // Consume so a later config change or re-delivery doesn't fire it twice
+        intent.removeExtra(LiveActivitiesManager.EXTRA_ACTIVITY_ID)
+        intent.removeExtra(LiveActivitiesManager.EXTRA_ACTION_ID)
+        notifyActionPerformed(activityId, actionId)
+    }
+
+    private fun notifyActionPerformed(activityId: String, actionId: String) {
+        val event = JSObject()
+        event.put("activityId", activityId)
+        event.put("actionId", actionId)
+        // Retained until a JS listener subscribes, e.g. on a cold start
+        notifyListeners("actionPerformed", event, true)
     }
 
     // -------------------------------------------------------------------------

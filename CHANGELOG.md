@@ -4,6 +4,41 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-10-17
+
+### Added
+
+- **Action buttons.** New `state.actions` (`{ id, title, opensApp? }`) and the
+  `actionPerformed` event (`{ activityId, actionId }`).
+  - Android: notification action buttons (up to 3). Taps that don't open the app
+    are handled in the background.
+  - iOS 17+: App Intent buttons (`LiveActivityActionIntent`,
+    `LiveActivityOpenAppActionIntent`) in `LiveActivityManager.swift`; the
+    example widget renders them on the Lock Screen and the expanded Dynamic
+    Island. A background tap keeps the app running until your listener calls
+    `update()` / `end()` (up to 10 s).
+  - Taps made while no listener is registered — including when the app wasn't
+    running — are delivered once you subscribe.
+- New types: `LiveActivityAction`, `ActionPerformedEvent`.
+- README: action-button screenshots for iOS and Android.
+- Example app: an editable list of action buttons (prefilled with 3, Android's
+  maximum); the demo ends the activity on `cancel`.
+
+### Fixed
+
+- iOS: `update()`, `end()` and `getPushToken()` now find activities started
+  before an app relaunch, instead of failing with "No active Live Activity".
+- README: corrected the path to the example widget template.
+- Example widget: action button labels use `textColor` on a translucent
+  `progressColor` capsule, instead of the system bordered style, which was
+  hard to read on dark Lock Screen backgrounds.
+
+### Changed
+
+- Android: the internal broadcast receiver is now `LiveActivityReceiver`
+  (was `LiveActivityDismissReceiver`). No action needed — it is declared in the
+  plugin's manifest.
+
 ## [1.0.0] — 2026-10-16
 
 The Android side is rewritten on Google's official
@@ -80,6 +115,7 @@ status-bar chip, a card pinned at the top of the shade and on the lock screen.
 - Initial release: iOS Live Activities (Dynamic Island + Lock Screen) with
   APNs push updates, and Android ongoing notifications.
 
+[1.1.0]: https://github.com/ciabosoftwaresolutions/capacitor-live-activities/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ciabosoftwaresolutions/capacitor-live-activities/compare/v0.1.2...v1.0.0
 [0.1.2]: https://github.com/ciabosoftwaresolutions/capacitor-live-activities/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/ciabosoftwaresolutions/capacitor-live-activities/compare/v0.1.0...v0.1.1

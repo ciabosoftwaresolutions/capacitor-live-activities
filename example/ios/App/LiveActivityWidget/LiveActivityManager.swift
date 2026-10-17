@@ -4,6 +4,28 @@ import Foundation
 import ActivityKit
 #endif
 
+#if canImport(AppIntents)
+import AppIntents
+#endif
+
+// ---------------------------------------------------------------------------
+// Action buttons
+// ---------------------------------------------------------------------------
+
+/// A button on the Live Activity. Tapping it fires `actionPerformed` in JS.
+public struct LiveActivityAction: Codable, Hashable {
+    public var id: String
+    public var title: String
+    /// Bring the app to the foreground when tapped.
+    public var opensApp: Bool?
+
+    public init(id: String, title: String, opensApp: Bool? = nil) {
+        self.id = id
+        self.title = title
+        self.opensApp = opensApp
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Generic JSON-driven ActivityAttributes
 // ---------------------------------------------------------------------------
@@ -39,6 +61,9 @@ public struct LiveActivityAttributes: ActivityAttributes {
         public var progressBarHeight: Double?
         /// Corner radius in points of the linear progress bar.
         public var progressBarRadius: Double?
+        /// Buttons rendered by the widget (iOS 17+). Each tap runs
+        /// `LiveActivityActionIntent`, which forwards it to JS.
+        public var actions: [LiveActivityAction]?
         public var extras: [String: AnyCodable]
 
         public init(
@@ -56,6 +81,7 @@ public struct LiveActivityAttributes: ActivityAttributes {
             keylineTint: String? = nil,
             progressBarHeight: Double? = nil,
             progressBarRadius: Double? = nil,
+            actions: [LiveActivityAction]? = nil,
             extras: [String: AnyCodable] = [:]
         ) {
             self.title = title
@@ -72,6 +98,7 @@ public struct LiveActivityAttributes: ActivityAttributes {
             self.keylineTint = keylineTint
             self.progressBarHeight = progressBarHeight
             self.progressBarRadius = progressBarRadius
+            self.actions = actions
             self.extras = extras
         }
     }
@@ -266,7 +293,7 @@ public class LiveActivityManager {
         alertTitle: String?,
         alertBody: String?
     ) async throws {
-        guard let activity = activities[activityId] else {
+        guard let activity = activity(for: activityId) else {
             throw LiveActivityError.activityNotFound(activityId)
         }
 
@@ -297,7 +324,7 @@ public class LiveActivityManager {
         finalState: [String: Any]?,
         dismissalPolicy: String?
     ) async throws {
-        guard let activity = activities[activityId] else {
+        guard let activity = activity(for: activityId) else {
             throw LiveActivityError.activityNotFound(activityId)
         }
 
@@ -324,7 +351,7 @@ public class LiveActivityManager {
     // MARK: - getPushToken
 
     func getPushToken(activityId: String) -> String? {
-        guard let activity = activities[activityId] else { return nil }
+        guard let activity = activity(for: activityId) else { return nil }
         guard let tokenData = activity.pushToken else { return nil }
         return tokenData.map { String(format: "%02x", $0) }.joined()
     }
@@ -343,6 +370,18 @@ public class LiveActivityManager {
 
     // MARK: - Helpers
 
+    /// Activities started in this process, or — after a relaunch, e.g. when an
+    /// action-button tap is delivered on the next launch — still running ones
+    /// looked up from ActivityKit.
+    private func activity(for activityId: String) -> Activity<LiveActivityAttributes>? {
+        if let activity = activities[activityId] { return activity }
+        guard let activity = Activity<LiveActivityAttributes>.activities.first(where: { $0.id == activityId }) else {
+            return nil
+        }
+        activities[activityId] = activity
+        return activity
+    }
+
     private func buildContentState(from dict: [String: Any]) throws -> LiveActivityAttributes.ContentState {
         guard let title = dict["title"] as? String else {
             throw LiveActivityError.missingField("title")
@@ -353,7 +392,7 @@ public class LiveActivityManager {
             "title", "subtitle", "progress", "icon",
             "timerEnd", "timerStart", "timerCountsDown",
             "backgroundColor", "progressColor", "textColor", "iconColor",
-            "keylineTint", "progressBarHeight", "progressBarRadius"
+            "keylineTint", "progressBarHeight", "progressBarRadius", "actions"
         ]
         for (k, v) in dict where !reserved.contains(k) {
             extras[k] = AnyCodable(v)
@@ -364,6 +403,11 @@ public class LiveActivityManager {
         var timerStart: Date? = nil
         if let ts = dict["timerEnd"] as? Double { timerEnd = Date(timeIntervalSince1970: ts) }
         if let ts = dict["timerStart"] as? Double { timerStart = Date(timeIntervalSince1970: ts) }
+
+        let actions: [LiveActivityAction]? = (dict["actions"] as? [[String: Any]])?.compactMap { item in
+            guard let id = item["id"] as? String, let title = item["title"] as? String else { return nil }
+            return LiveActivityAction(id: id, title: title, opensApp: item["opensApp"] as? Bool)
+        }
 
         return LiveActivityAttributes.ContentState(
             title: title,
@@ -380,6 +424,7 @@ public class LiveActivityManager {
             keylineTint: dict["keylineTint"] as? String,
             progressBarHeight: dict["progressBarHeight"] as? Double,
             progressBarRadius: dict["progressBarRadius"] as? Double,
+            actions: actions,
             extras: extras
         )
     }
@@ -405,7 +450,120 @@ extension Notification.Name {
     static let liveActivityStateChanged    = Notification.Name("LiveActivityStateChanged")
     static let liveActivityPushTokenUpdated = Notification.Name("LiveActivityPushTokenUpdated")
     static let liveActivityPushToStartTokenUpdated = Notification.Name("LiveActivityPushToStartTokenUpdated")
+    static let liveActivityActionPerformed = Notification.Name("LiveActivityActionPerformed")
+    /// Posted by the plugin after `update()` / `end()` for an activity, so a
+    /// running action intent knows the app has reacted to the tap.
+    static let liveActivityActionHandled = Notification.Name("LiveActivityActionHandled")
 }
+
+// ---------------------------------------------------------------------------
+// Action button taps → plugin
+// ---------------------------------------------------------------------------
+// A tap can start the app in the background before the plugin (or the
+// WebView) is loaded, so taps are queued in UserDefaults and the plugin drains
+// the queue when it loads and whenever it is notified.
+
+public enum LiveActivityActionQueue {
+    static let defaultsKey = "CapacitorLiveActivities.pendingActions"
+
+    public static func enqueue(activityId: String, actionId: String) {
+        let defaults = UserDefaults.standard
+        var pending = defaults.array(forKey: defaultsKey) as? [[String: String]] ?? []
+        pending.append(["activityId": activityId, "actionId": actionId])
+        defaults.set(pending, forKey: defaultsKey)
+        NotificationCenter.default.post(name: .liveActivityActionPerformed, object: nil)
+    }
+
+    /// Waits until the app responds to the tap with `update()` / `end()` for
+    /// this activity, or until `timeout`. iOS keeps the app running while an
+    /// intent's `perform()` is in progress, which gives the WebView time to run
+    /// the JS `actionPerformed` handler even when the app is in the background.
+    @available(iOS 15.0, *)
+    public static func waitUntilHandled(activityId: String, timeout: TimeInterval) async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                for await note in NotificationCenter.default.notifications(named: .liveActivityActionHandled) {
+                    if (note.userInfo?["activityId"] as? String) == activityId { return }
+                }
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+            }
+            await group.next()
+            group.cancelAll()
+        }
+    }
+
+    static func drain() -> [[String: String]] {
+        let defaults = UserDefaults.standard
+        let pending = defaults.array(forKey: defaultsKey) as? [[String: String]] ?? []
+        defaults.removeObject(forKey: defaultsKey)
+        return pending
+    }
+}
+
+#if canImport(AppIntents) && canImport(ActivityKit)
+/// Runs when a Live Activity button is tapped (iOS 17+).
+///
+/// This file must be a member of BOTH the app target and the Widget Extension
+/// target: the widget uses the type to build `Button(intent:)`, and because it
+/// is a `LiveActivityIntent` that also exists in the app, the system runs
+/// `perform()` in the app's process — where the plugin can see the tap.
+@available(iOS 17.0, *)
+public struct LiveActivityActionIntent: LiveActivityIntent {
+    public static var title: LocalizedStringResource = "Live Activity action"
+    public static var isDiscoverable: Bool = false
+
+    @Parameter(title: "Activity ID")
+    public var activityId: String
+
+    @Parameter(title: "Action ID")
+    public var actionId: String
+
+    public init() {}
+
+    public init(activityId: String, actionId: String) {
+        self.activityId = activityId
+        self.actionId = actionId
+    }
+
+    @MainActor
+    public func perform() async throws -> some IntentResult {
+        LiveActivityActionQueue.enqueue(activityId: activityId, actionId: actionId)
+        // Keep the app awake until JS reacts (or 10 s pass). If the app was not
+        // running, the tap stays queued and is delivered on the next launch.
+        await LiveActivityActionQueue.waitUntilHandled(activityId: activityId, timeout: 10)
+        return .result()
+    }
+}
+
+/// Same as `LiveActivityActionIntent`, but brings the app to the foreground.
+@available(iOS 17.0, *)
+public struct LiveActivityOpenAppActionIntent: LiveActivityIntent {
+    public static var title: LocalizedStringResource = "Open app for Live Activity action"
+    public static var isDiscoverable: Bool = false
+    public static var openAppWhenRun: Bool = true
+
+    @Parameter(title: "Activity ID")
+    public var activityId: String
+
+    @Parameter(title: "Action ID")
+    public var actionId: String
+
+    public init() {}
+
+    public init(activityId: String, actionId: String) {
+        self.activityId = activityId
+        self.actionId = actionId
+    }
+
+    @MainActor
+    public func perform() async throws -> some IntentResult {
+        LiveActivityActionQueue.enqueue(activityId: activityId, actionId: actionId)
+        return .result()
+    }
+}
+#endif
 
 // MARK: - Errors
 

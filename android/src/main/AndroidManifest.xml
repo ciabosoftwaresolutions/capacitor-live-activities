@@ -10,7 +10,7 @@
 
     <application>
         <receiver
-            android:name=".LiveActivityDismissReceiver"
+            android:name=".LiveActivityReceiver"
             android:exported="false" />
     </application>
 

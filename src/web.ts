@@ -2,12 +2,9 @@ import { WebPlugin } from '@capacitor/core';
 
 import type {
   ActivityInfo,
-  ActivityStateChangedEvent,
   EndOptions,
   LiveActivitiesPlugin,
   PushTokenResult,
-  PushTokenUpdatedEvent,
-  PushToStartTokenUpdatedEvent,
   StartOptions,
   StartResult,
   UpdateOptions,
@@ -53,10 +50,9 @@ export class LiveActivitiesWeb extends WebPlugin implements LiveActivitiesPlugin
   }
 
   async addListener(
-    _eventName: 'activityStateChanged' | 'pushTokenUpdated' | 'pushToStartTokenUpdated',
-    _listenerFunc: (
-      event: ActivityStateChangedEvent | PushTokenUpdatedEvent | PushToStartTokenUpdatedEvent,
-    ) => void,
+    _eventName: 'actionPerformed' | 'activityStateChanged' | 'pushTokenUpdated' | 'pushToStartTokenUpdated',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    _listenerFunc: (event: any) => void,
   ): Promise<PluginListenerHandle> {
     return { remove: async () => {} };
   }

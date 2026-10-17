@@ -83,6 +83,18 @@
         </label>
       </section>
 
+      <!-- Action buttons -->
+      <section class="card">
+        <h2>Action buttons</h2>
+        <p class="hint">Sent as the <code>state.actions</code> array on <strong>Start</strong>, <strong>Update</strong> and <strong>Start Timer</strong>. Taps fire <code>actionPerformed</code> with the button's id — this demo ends the activity on <code>cancel</code> and logs the rest. <strong>Android shows at most 3 buttons</strong> (extra ones are ignored); iOS 17+ shows every button your widget lays out.</p>
+        <label class="check-row">
+          <input id="in-use-actions" type="checkbox" checked /> Show action buttons
+        </label>
+        <ul id="action-list" class="action-list"></ul>
+        <p id="action-limit" class="hint warn hidden">Android will only show the first 3.</p>
+        <button id="btn-add-action" class="small">+ Add button</button>
+      </section>
+
       <!-- Shared appearance (Android) -->
       <section class="card">
         <h2>Appearance (Android)</h2>

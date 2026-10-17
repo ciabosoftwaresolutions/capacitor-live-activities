@@ -14,6 +14,7 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "areActivitiesEnabled", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "end", returnType: CAPPluginReturnPromise),
@@ -25,6 +26,7 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
     private var stateObserver: NSObjectProtocol?
     private var tokenObserver: NSObjectProtocol?
     private var pushToStartObserver: NSObjectProtocol?
+    private var actionObserver: NSObjectProtocol?
 
     public override func load() {
         stateObserver = NotificationCenter.default.addObserver(
@@ -54,6 +56,16 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
             self?.notifyListeners("pushToStartTokenUpdated", data: userInfo as? [String: Any] ?? [:])
         }
 
+        actionObserver = NotificationCenter.default.addObserver(
+            forName: .liveActivityActionPerformed,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.deliverPendingActions()
+        }
+        // Taps that launched the app before the plugin existed
+        deliverPendingActions()
+
         // Begin observing the push-to-start token immediately so the server
         // can launch activities even before the app calls start().
         if #available(iOS 16.2, *) {
@@ -62,8 +74,16 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     deinit {
-        [stateObserver, tokenObserver, pushToStartObserver].compactMap { $0 }.forEach {
+        [stateObserver, tokenObserver, pushToStartObserver, actionObserver].compactMap { $0 }.forEach {
             NotificationCenter.default.removeObserver($0)
+        }
+    }
+
+    /// Forwards queued action-button taps to JS. Retained until a listener
+    /// subscribes, so taps made before the web app was ready aren't lost.
+    private func deliverPendingActions() {
+        for action in LiveActivityActionQueue.drain() {
+            notifyListeners("actionPerformed", data: action, retainUntilConsumed: true)
         }
     }
 
@@ -84,6 +104,18 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve(["enabled": LiveActivityManager.shared.areActivitiesEnabled()])
         } else {
             call.resolve(["enabled": false])
+        }
+    }
+
+    // MARK: - openSettings
+
+    @objc func openSettings(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let url = URL(string: UIApplication.openSettingsURLString) else {
+                call.reject("Unable to open settings")
+                return
+            }
+            UIApplication.shared.open(url) { _ in call.resolve() }
         }
     }
 
@@ -150,6 +182,7 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
             } catch {
                 call.reject(error.localizedDescription)
             }
+            Self.postActionHandled(activityId)
         }
     }
 
@@ -180,7 +213,17 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
             } catch {
                 call.reject(error.localizedDescription)
             }
+            Self.postActionHandled(activityId)
         }
+    }
+
+    /// Lets a running `LiveActivityActionIntent` finish: the app has reacted.
+    private static func postActionHandled(_ activityId: String) {
+        NotificationCenter.default.post(
+            name: .liveActivityActionHandled,
+            object: nil,
+            userInfo: ["activityId": activityId]
+        )
     }
 
     // MARK: - getPushToken

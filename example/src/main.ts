@@ -51,6 +51,55 @@ function getAppearance() {
 }
 
 // -------------------------------------------------------------------------
+// Action buttons list — sent as `state.actions`
+// -------------------------------------------------------------------------
+
+const ANDROID_MAX_ACTIONS = 3;
+
+function addActionRow(action: { id: string; title: string; opensApp?: boolean } = { id: '', title: '' }) {
+  const li = document.createElement('li');
+  li.className = 'action-row';
+  li.innerHTML = `
+    <input class="action-id" type="text" placeholder="id" />
+    <input class="action-title" type="text" placeholder="Title" />
+    <label class="opens-app"><input class="action-opens-app" type="checkbox" /> opens app</label>
+    <button class="small danger" title="Remove">✕</button>
+  `;
+  (li.querySelector('.action-id') as HTMLInputElement).value = action.id;
+  (li.querySelector('.action-title') as HTMLInputElement).value = action.title;
+  (li.querySelector('.action-opens-app') as HTMLInputElement).checked = !!action.opensApp;
+  li.querySelector('button')!.addEventListener('click', () => {
+    li.remove();
+    updateActionLimitHint();
+  });
+  $('action-list').appendChild(li);
+  updateActionLimitHint();
+}
+
+function updateActionLimitHint() {
+  const count = $('action-list').children.length;
+  $('action-limit').classList.toggle('hidden', count <= ANDROID_MAX_ACTIONS);
+}
+
+/** Reads the Action buttons list into `state.actions`. */
+function getActions() {
+  if (!($('in-use-actions') as HTMLInputElement).checked) return {};
+  const actions = Array.from($('action-list').children).map((li) => ({
+    id:       (li.querySelector('.action-id')    as HTMLInputElement).value.trim(),
+    title:    (li.querySelector('.action-title') as HTMLInputElement).value.trim(),
+    opensApp: (li.querySelector('.action-opens-app') as HTMLInputElement).checked || undefined,
+  })).filter((a) => a.id && a.title);
+  return { actions };
+}
+
+$('btn-add-action').addEventListener('click', () => addActionRow());
+
+// Defaults — Android's maximum of 3
+addActionRow({ id: 'cancel',  title: 'Cancel' });
+addActionRow({ id: 'contact', title: 'Contact', opensApp: true });
+addActionRow({ id: 'track',   title: 'Track' });
+
+// -------------------------------------------------------------------------
 // Boot
 // -------------------------------------------------------------------------
 
@@ -61,6 +110,25 @@ $('platform-badge').className = `badge ${platform}`;
 // -------------------------------------------------------------------------
 // Listeners
 // -------------------------------------------------------------------------
+
+// Action buttons — your app decides what a tap means. Taps made while the app
+// wasn't running are delivered here as soon as this listener is registered.
+LiveActivities.addListener('actionPerformed', async ({ activityId, actionId }) => {
+  log(`actionPerformed → id=${activityId}  action=${actionId}`, 'event');
+  if (actionId === 'cancel') {
+    if (activityId === timerActivityId) clearTimerInterval();
+    try {
+      await LiveActivities.end({
+        activityId,
+        finalState: { title: 'Order cancelled', subtitle: 'Cancelled from the Live Activity', ...getAppearance() },
+      });
+      log(`Ended activity id=${activityId} after Cancel`, 'ok');
+    } catch (e: any) {
+      log(`end after Cancel failed: ${e.message}`, 'err');
+    }
+    refreshList();
+  }
+});
 
 LiveActivities.addListener('activityStateChanged', (event) => {
   log(`activityStateChanged → id=${event.activityId}  state=${event.activityState}`, 'event');
@@ -118,6 +186,7 @@ $('btn-start').addEventListener('click', async () => {
         icon:     val('in-icon') || undefined,
         shortCriticalText: val('in-chip') || undefined,
         ...getAppearance(),
+        ...getActions(),
       },
     });
 
@@ -158,6 +227,7 @@ $('btn-update').addEventListener('click', async () => {
         // Re-send appearance — each update REPLACES the full content state,
         // so icon/colors reset to defaults if you omit them.
         ...getAppearance(),
+        ...getActions(),
       },
       alertTitle: val('in-alert-title') || undefined,
       alertBody:  val('in-alert-body')  || undefined,
@@ -247,6 +317,7 @@ $('btn-start-timer').addEventListener('click', async () => {
         // Android derives the bar from timerStart/timerEnd when progress is unset
         progress:  platform === 'android' ? undefined : 0,
         ...getAppearance(),
+        ...getActions(),
       },
     });
 

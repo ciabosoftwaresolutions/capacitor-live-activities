@@ -1,6 +1,23 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 
 /**
+ * A button shown on the Live Activity / Live Update. Tapping it fires the
+ * `actionPerformed` event with this `id` — your code then decides what to do
+ * (e.g. call your API, then `update()` or `end()`).
+ */
+export interface LiveActivityAction {
+  /** Identifier you receive back in `actionPerformed`. */
+  id: string;
+  /** Button label. Keep it short. */
+  title: string;
+  /**
+   * Bring the app to the foreground when tapped. Defaults to `false`: the tap
+   * is handled without opening the app.
+   */
+  opensApp?: boolean;
+}
+
+/**
  * Static data for a Live Activity — set once at creation, never changes.
  * Keep this small; use `state` for anything that updates.
  */
@@ -40,6 +57,19 @@ export interface LiveActivityState {
    * iOS colors, which usually target a dark Lock Screen background.
    */
   accentColor?: string;
+  /**
+   * Buttons shown on the activity. Each tap fires `actionPerformed`.
+   *
+   * - **Android**: notification action buttons, up to 3 (extra ones are ignored).
+   * - **iOS 17+**: rendered by your Widget Extension (the template in this repo
+   *   shows them on the Lock Screen and the expanded Dynamic Island). Ignored on
+   *   iOS 16.x. Needs `LiveActivityManager.swift` in both the app and the widget
+   *   target — see README → Action buttons.
+   *
+   * Taps made while no JS listener is registered (e.g. the app wasn't running)
+   * are kept and delivered once you subscribe.
+   */
+  actions?: LiveActivityAction[];
   /**
    * iOS only — hex color string for the activity background tint.
    * Applied to the Lock Screen banner and expanded Dynamic Island background.
@@ -188,6 +218,13 @@ export interface PushTokenResult {
   type: 'apns' | 'fcm' | null;
 }
 
+export interface ActionPerformedEvent {
+  /** The activity whose button was tapped. */
+  activityId: string;
+  /** The `id` of the tapped {@link LiveActivityAction}. */
+  actionId: string;
+}
+
 export interface PushTokenUpdatedEvent {
   activityId: string;
   token: string;
@@ -295,6 +332,10 @@ export interface LiveActivitiesPlugin {
   /**
    * Subscribe to Live Activity events.
    *
+   * - **`actionPerformed`** — Fired when the user taps one of the `actions`
+   *   buttons. Payload: `{ activityId: string, actionId: string }`. Taps that
+   *   happened while nothing was listening are delivered when you subscribe.
+   *
    * - **`activityStateChanged`** — Fired when the system changes the state of a
    *   Live Activity (e.g. the user dismisses it from the Lock Screen). On Android
    *   this fires with `dismissed` when the user swipes the Live Update away; stop
@@ -311,6 +352,11 @@ export interface LiveActivitiesPlugin {
    *   can **start** new activities remotely.
    *   Payload: `{ token: string, type: 'apns' }`
    */
+  addListener(
+    eventName: 'actionPerformed',
+    listenerFunc: (event: ActionPerformedEvent) => void,
+  ): Promise<PluginListenerHandle>;
+
   addListener(
     eventName: 'activityStateChanged' | 'pushTokenUpdated' | 'pushToStartTokenUpdated',
     listenerFunc: (

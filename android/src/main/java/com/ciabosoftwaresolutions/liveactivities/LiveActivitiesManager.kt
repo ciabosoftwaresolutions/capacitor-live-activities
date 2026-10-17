@@ -44,6 +44,10 @@ class LiveActivitiesManager(private val context: Context) {
 
         const val EXTRA_ACTIVITY_ID = "com.ciabosoftwaresolutions.liveactivities.ACTIVITY_ID"
         const val EXTRA_ACTIVITY_TYPE = "com.ciabosoftwaresolutions.liveactivities.ACTIVITY_TYPE"
+        const val EXTRA_ACTION_ID = "com.ciabosoftwaresolutions.liveactivities.ACTION_ID"
+
+        // Android notifications show at most 3 action buttons.
+        private const val MAX_ACTIONS = 3
 
         // Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS (API 36). Kept as a
         // literal so the plugin still compiles against compileSdk 35.
@@ -124,7 +128,7 @@ class LiveActivitiesManager(private val context: Context) {
 
     fun getActiveActivities(): List<ActivityInfo> = activities.values.toList()
 
-    /** Called by [LiveActivityDismissReceiver] when the user dismisses a Live Update. */
+    /** Called by [LiveActivityReceiver] when the user dismisses a Live Update. */
     fun handleDismissed(activityId: String) {
         val removed = synchronized(lock) {
             cancelTicker(activityId)
@@ -289,6 +293,7 @@ class LiveActivitiesManager(private val context: Context) {
 
         contentIntent()?.let { builder.setContentIntent(it) }
         if (ongoing) builder.setDeleteIntent(deleteIntent(info))
+        addActions(builder, info, state)
 
         if (timerEnd != null && ongoing && timerEnd * 1000 > System.currentTimeMillis()) {
             // The status-bar chip and the notification both count down to `when`
@@ -346,8 +351,60 @@ class LiveActivitiesManager(private val context: Context) {
         )
     }
 
+    /**
+     * `state.actions` → notification action buttons. Buttons that don't open the
+     * app go through [LiveActivityReceiver]; `opensApp` ones launch the app with
+     * the ids as extras, which the plugin picks up in handleOnNewIntent / load.
+     * Activities can't be started from a receiver (Android 12+ trampoline rule),
+     * hence the two paths.
+     */
+    private fun addActions(builder: NotificationCompat.Builder, info: ActivityInfo, state: JSObject) {
+        val actions = state.optJSONArray("actions") ?: return
+        var added = 0
+        for (i in 0 until actions.length()) {
+            if (added == MAX_ACTIONS) break
+            val action = actions.optJSONObject(i) ?: continue
+            val actionId = action.optString("id", "")
+            val title = action.optString("title", "")
+            if (actionId.isBlank() || title.isBlank()) continue
+
+            val requestCode = 31 * info.notificationId + actionId.hashCode()
+            val pendingIntent = if (action.optBoolean("opensApp", false)) {
+                openAppActionIntent(info, actionId, requestCode)
+            } else {
+                broadcastActionIntent(info, actionId, requestCode)
+            } ?: continue
+
+            builder.addAction(NotificationCompat.Action.Builder(null, title, pendingIntent).build())
+            added++
+        }
+    }
+
+    private fun broadcastActionIntent(info: ActivityInfo, actionId: String, requestCode: Int): PendingIntent {
+        val intent = Intent(context, LiveActivityReceiver::class.java)
+            .setAction(LiveActivityReceiver.ACTION_BUTTON)
+            .putExtra(EXTRA_ACTIVITY_ID, info.activityId)
+            .putExtra(EXTRA_ACTION_ID, actionId)
+        return PendingIntent.getBroadcast(
+            context, requestCode, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun openAppActionIntent(info: ActivityInfo, actionId: String, requestCode: Int): PendingIntent? {
+        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return null
+        launch.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        launch.putExtra(EXTRA_ACTIVITY_ID, info.activityId)
+        launch.putExtra(EXTRA_ACTION_ID, actionId)
+        return PendingIntent.getActivity(
+            context, requestCode, launch,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
     private fun deleteIntent(info: ActivityInfo): PendingIntent {
-        val intent = Intent(context, LiveActivityDismissReceiver::class.java)
+        val intent = Intent(context, LiveActivityReceiver::class.java)
+            .setAction(LiveActivityReceiver.ACTION_DISMISSED)
             .putExtra(EXTRA_ACTIVITY_ID, info.activityId)
         return PendingIntent.getBroadcast(
             context, info.notificationId, intent,
