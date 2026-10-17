@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
-## [2.0.0] — 2026-10-16
+## [1.0.0] — 2026-10-16
 
 The Android side is rewritten on Google's official
 [Live Updates](https://developer.android.com/develop/ui/compose/notifications/live-update)
@@ -80,7 +80,7 @@ status-bar chip, a card pinned at the top of the shade and on the lock screen.
 - Initial release: iOS Live Activities (Dynamic Island + Lock Screen) with
   APNs push updates, and Android ongoing notifications.
 
-[2.0.0]: https://github.com/ciabosoftwaresolutions/capacitor-live-activities/compare/v0.1.2...v2.0.0
+[1.0.0]: https://github.com/ciabosoftwaresolutions/capacitor-live-activities/compare/v0.1.2...v1.0.0
 [0.1.2]: https://github.com/ciabosoftwaresolutions/capacitor-live-activities/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/ciabosoftwaresolutions/capacitor-live-activities/compare/v0.1.0...v0.1.1
 [0.1.0]: https://www.npmjs.com/package/@ciabosoftwaresolutions/capacitor-live-activities/v/0.1.0
