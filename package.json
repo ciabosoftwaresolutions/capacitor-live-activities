@@ -1,6 +1,6 @@
 {
   "name": "@ciabosoftwaresolutions/capacitor-live-activities",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Capacitor plugin for iOS Live Activities (Dynamic Island + Lock Screen) and Android Live Updates notifications",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
