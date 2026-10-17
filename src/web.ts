@@ -9,7 +9,9 @@ import type {
   PushTokenUpdatedEvent,
   PushToStartTokenUpdatedEvent,
   StartOptions,
+  StartResult,
   UpdateOptions,
+  UpdateResult,
 } from './definitions';
 import type { PluginListenerHandle } from '@capacitor/core';
 
@@ -22,11 +24,15 @@ export class LiveActivitiesWeb extends WebPlugin implements LiveActivitiesPlugin
     return { enabled: false };
   }
 
-  async start(_options: StartOptions): Promise<{ activityId: string }> {
+  async openSettings(): Promise<void> {
     throw this.unimplemented('Live Activities are not supported on web.');
   }
 
-  async update(_options: UpdateOptions): Promise<void> {
+  async start(_options: StartOptions): Promise<StartResult> {
+    throw this.unimplemented('Live Activities are not supported on web.');
+  }
+
+  async update(_options: UpdateOptions): Promise<UpdateResult> {
     throw this.unimplemented('Live Activities are not supported on web.');
   }
 

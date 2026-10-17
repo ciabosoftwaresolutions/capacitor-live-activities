@@ -25,6 +25,20 @@ class LiveActivitiesPlugin : Plugin() {
 
     override fun load() {
         manager = LiveActivitiesManager(context)
+        manager.onDismissed = { activityId ->
+            val event = JSObject()
+            event.put("activityId", activityId)
+            event.put("activityState", "dismissed")
+            notifyListeners("activityStateChanged", event)
+        }
+        LiveActivityDismissReceiver.manager = manager
+    }
+
+    override fun handleOnDestroy() {
+        if (LiveActivityDismissReceiver.manager === manager) {
+            LiveActivityDismissReceiver.manager = null
+        }
+        super.handleOnDestroy()
     }
 
     // -------------------------------------------------------------------------
@@ -81,8 +95,18 @@ class LiveActivitiesPlugin : Plugin() {
     @PluginMethod
     fun areActivitiesEnabled(call: PluginCall) {
         val result = JSObject()
-        result.put("enabled", true)
+        result.put("enabled", manager.areActivitiesEnabled())
         call.resolve(result)
+    }
+
+    @PluginMethod
+    fun openSettings(call: PluginCall) {
+        try {
+            manager.openSettings()
+            call.resolve()
+        } catch (e: Exception) {
+            call.reject(e.message ?: "Unable to open settings")
+        }
     }
 
     @PluginMethod
@@ -96,9 +120,10 @@ class LiveActivitiesPlugin : Plugin() {
         }
 
         try {
-            val activityId = manager.start(attributes, state)
+            val posted = manager.start(attributes, state)
             val result = JSObject()
-            result.put("activityId", activityId)
+            result.put("activityId", posted.activityId)
+            result.put("liveUpdate", posted.liveUpdate)
             call.resolve(result)
         } catch (e: Exception) {
             call.reject(e.message ?: "Failed to start Live Activity")
@@ -116,8 +141,9 @@ class LiveActivitiesPlugin : Plugin() {
         }
 
         try {
-            manager.update(activityId, state)
-            call.resolve()
+            val result = JSObject()
+            result.put("liveUpdate", manager.update(activityId, state))
+            call.resolve(result)
         } catch (e: Exception) {
             call.reject(e.message ?: "Failed to update Live Activity")
         }
@@ -133,9 +159,10 @@ class LiveActivitiesPlugin : Plugin() {
         }
 
         val finalState = call.getObject("finalState")
+        val dismissalPolicy = call.getString("dismissalPolicy")
 
         try {
-            manager.end(activityId, finalState)
+            manager.end(activityId, finalState, dismissalPolicy)
             call.resolve()
         } catch (e: Exception) {
             call.reject(e.message ?: "Failed to end Live Activity")

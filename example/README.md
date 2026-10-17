@@ -26,7 +26,7 @@ npm run build
 # Add the iOS platform (first time only)
 npx cap add ios
 
-# Sync web assets + plugin
+# Build + sync web assets and plugin
 npm run sync:ios
 
 # Open Xcode
@@ -49,14 +49,12 @@ Then in Xcode:
 # Add the Android platform (first time only)
 npx cap add android
 
-# Sync
-npm run sync:android
-
-# Open Android Studio
-npm run open:android
+# Build, sync and run on a connected device / emulator (prompts for a target)
+npm run run:android
 ```
 
-Then in Android Studio: **Run → Run 'app'**.
+Or open it in Android Studio with `npm run open:android` and **Run → Run 'app'**.
+`npm run sync:android` builds and syncs without launching.
 
 Live Updates chip is visible on a device running **Android 16 (API 36)+**.
 On earlier versions a standard sticky notification is shown instead.

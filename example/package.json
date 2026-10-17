@@ -1,14 +1,16 @@
 {
   "name": "capacitor-live-activities-example",
   "private": true,
-  "version": "0.1.0",
+  "version": "2.0.0",
   "description": "Example app for @ciabosoftwaresolutions/capacitor-live-activities",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "sync:ios": "npx cap sync ios",
-    "sync:android": "npx cap sync android",
+    "sync:ios": "npm run build && npx cap sync ios",
+    "sync:android": "npm run build && npx cap sync android",
+    "run:ios": "npm run build && npx cap run ios",
+    "run:android": "npm run build && npx cap run android",
     "open:ios": "npx cap open ios",
     "open:android": "npx cap open android"
   },

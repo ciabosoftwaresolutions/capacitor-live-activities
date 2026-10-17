@@ -16,6 +16,11 @@ function showResult(id: string, text: string, ok = true) {
   el.textContent = text;
   el.className = `result ${ok ? 'ok' : 'err'}`;
 }
+/** Android only — shows whether the system accepted the notification as a Live Update. */
+function liveUpdateLabel(liveUpdate?: boolean) {
+  if (liveUpdate === undefined) return '';
+  return liveUpdate ? '  · ✅ Live Update' : '  · ⚠️ plain notification (not promoted)';
+}
 function log(msg: string, type: 'info' | 'ok' | 'err' | 'event' = 'info') {
   const logEl = $('log');
   const line = document.createElement('div');
@@ -25,12 +30,13 @@ function log(msg: string, type: 'info' | 'ok' | 'err' | 'event' = 'info') {
 }
 
 /**
- * Reads the shared Appearance (iOS) controls and returns the style fields
- * to spread into a Live Activity `state`. iOS-only; Android ignores them.
+ * Reads the shared Appearance controls and returns the style fields to spread
+ * into a Live Activity `state`. Each platform ignores the other's fields.
  */
 function getAppearance() {
   const useKeyline = ($('in-use-keyline') as HTMLInputElement).checked;
   const direction  = ($('in-timer-direction') as HTMLSelectElement).value;
+  const useAccent  = ($('in-use-accent') as HTMLInputElement).checked;
   return {
     backgroundColor:   ($('in-bg-color')       as HTMLInputElement).value,
     progressColor:     ($('in-progress-color') as HTMLInputElement).value,
@@ -39,6 +45,8 @@ function getAppearance() {
     keylineTint:       useKeyline ? ($('in-keyline-color') as HTMLInputElement).value : undefined,
     progressBarHeight: parseInt(($('in-bar-height') as HTMLInputElement).value),
     timerCountsDown:   direction !== 'up',
+    // Android
+    accentColor:       useAccent ? ($('in-accent-color') as HTMLInputElement).value : undefined,
   };
 }
 
@@ -77,6 +85,20 @@ $('btn-check').addEventListener('click', async () => {
   }
 });
 
+$('btn-open-settings').addEventListener('click', async () => {
+  try {
+    await LiveActivities.openSettings();
+    log('Opened settings', 'ok');
+  } catch (e: any) {
+    log(`openSettings error: ${e.message}`, 'err');
+  }
+});
+
+// Settings may have changed while the user was away
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') $('btn-check').click();
+});
+
 // -------------------------------------------------------------------------
 // Start
 // -------------------------------------------------------------------------
@@ -85,7 +107,7 @@ let lastActivityId = '';
 
 $('btn-start').addEventListener('click', async () => {
   try {
-    const { activityId } = await LiveActivities.start({
+    const { activityId, liveUpdate } = await LiveActivities.start({
       attributes: {
         activityType: val('in-type'),
       },
@@ -94,6 +116,7 @@ $('btn-start').addEventListener('click', async () => {
         subtitle: val('in-subtitle') || undefined,
         progress: parseFloat(val('in-progress')) || undefined,
         icon:     val('in-icon') || undefined,
+        shortCriticalText: val('in-chip') || undefined,
         ...getAppearance(),
       },
     });
@@ -104,8 +127,8 @@ $('btn-start').addEventListener('click', async () => {
     ($('in-end-id')    as HTMLInputElement).value = activityId;
     ($('in-token-id')  as HTMLInputElement).value = activityId;
 
-    showResult('start-result', `✅ Started — id: ${activityId}`);
-    log(`Started activity id=${activityId}`, 'ok');
+    showResult('start-result', `✅ Started — id: ${activityId}${liveUpdateLabel(liveUpdate)}`);
+    log(`Started activity id=${activityId}${liveUpdateLabel(liveUpdate)}`, 'ok');
     refreshList();
   } catch (e: any) {
     showResult('start-result', `❌ ${e.message}`, false);
@@ -124,13 +147,14 @@ $('btn-update').addEventListener('click', async () => {
     return;
   }
   try {
-    await LiveActivities.update({
+    const { liveUpdate } = await LiveActivities.update({
       activityId,
       state: {
         title:    val('in-update-title'),
         subtitle: val('in-update-subtitle') || undefined,
         progress: parseFloat(val('in-update-progress')) || undefined,
         icon:     val('in-update-icon') || undefined,
+        shortCriticalText: val('in-update-chip') || undefined,
         // Re-send appearance — each update REPLACES the full content state,
         // so icon/colors reset to defaults if you omit them.
         ...getAppearance(),
@@ -138,8 +162,8 @@ $('btn-update').addEventListener('click', async () => {
       alertTitle: val('in-alert-title') || undefined,
       alertBody:  val('in-alert-body')  || undefined,
     });
-    showResult('update-result', `✅ Updated`);
-    log(`Updated activity id=${activityId}`, 'ok');
+    showResult('update-result', `✅ Updated${liveUpdateLabel(liveUpdate)}`);
+    log(`Updated activity id=${activityId}${liveUpdateLabel(liveUpdate)}`, 'ok');
   } catch (e: any) {
     showResult('update-result', `❌ ${e.message}`, false);
     log(`update error: ${e.message}`, 'err');
@@ -182,24 +206,27 @@ $('btn-end').addEventListener('click', async () => {
 // Timer demo
 // -------------------------------------------------------------------------
 
-let timerInterval: ReturnType<typeof setInterval> | null = null;
+let timerTimeout: ReturnType<typeof setTimeout> | null = null;
 let timerActivityId = '';
 
 function clearTimerInterval() {
-  if (timerInterval !== null) {
-    clearInterval(timerInterval);
-    timerInterval = null;
+  if (timerTimeout !== null) {
+    clearTimeout(timerTimeout);
+    timerTimeout = null;
   }
 }
 
 $('btn-start-timer').addEventListener('click', async () => {
-  // Clear any existing timer
+  // Replace any running timer demo so it doesn't linger without its auto-end
   clearTimerInterval();
+  if (timerActivityId) {
+    LiveActivities.end({ activityId: timerActivityId, dismissalPolicy: 'immediate' }).catch(() => {});
+    timerActivityId = '';
+  }
 
   const durationSeconds = parseInt(($('in-timer-duration') as HTMLSelectElement).value);
   const durationMs      = durationSeconds * 1000;
   const nowSeconds      = Date.now() / 1000;
-  const endTimeMs       = Date.now() + durationMs;
   const timerStart      = nowSeconds;
   const timerEnd        = nowSeconds + durationSeconds;
 
@@ -207,22 +234,18 @@ $('btn-start-timer').addEventListener('click', async () => {
   const subtitle = val('in-timer-subtitle') || undefined;
   const icon     = ($('in-timer-icon') as HTMLSelectElement).value || undefined;
 
-  // Format end time as "Arriving by HH:MM" for Android subtitle
-  const endDate    = new Date(endTimeMs);
-  const endTimeStr = endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const androidSubtitle = subtitle ? `${subtitle} · by ${endTimeStr}` : `By ${endTimeStr}`;
-
   try {
-    const { activityId } = await LiveActivities.start({
+    const { activityId, liveUpdate } = await LiveActivities.start({
       attributes: { activityType: 'timer-demo' },
       state: {
         title,
-        // iOS uses timerEnd for native countdown; Android shows the end time as text
-        subtitle:  platform === 'android' ? androidSubtitle : subtitle,
+        // Both platforms render a native countdown from timerEnd
+        subtitle,
         icon,
         timerStart,
         timerEnd,
-        progress:  0,
+        // Android derives the bar from timerStart/timerEnd when progress is unset
+        progress:  platform === 'android' ? undefined : 0,
         ...getAppearance(),
       },
     });
@@ -236,50 +259,23 @@ $('btn-start-timer').addEventListener('click', async () => {
     const mins = Math.floor(durationSeconds / 60);
     const secs = durationSeconds % 60;
     showResult('timer-result', `✅ Timer started — ${mins}:${secs.toString().padStart(2,'0')}`);
-    log(`Timer started — ${durationSeconds}s, id=${activityId}`, 'ok');
+    log(`Timer started — ${durationSeconds}s, id=${activityId}${liveUpdateLabel(liveUpdate)}`, 'ok');
     refreshList();
 
-    // ── Android: JS-driven progress updates every 5 s ──────────────────
-    // iOS uses timerEnd natively — no JS updates needed on iOS.
+    // Both platforms animate the countdown and progress bar natively.
+    // On Android, end the demo once the timer runs out so it doesn't linger.
     if (platform === 'android') {
-      timerInterval = setInterval(async () => {
-        const remaining = endTimeMs - Date.now();
-
-        if (remaining <= 0) {
-          clearTimerInterval();
-          try {
-            await LiveActivities.end({
-              activityId,
-              finalState: { title, subtitle: 'Done!', progress: 1, icon, ...getAppearance() },
-            });
-            log(`Timer ended — id=${activityId}`, 'ok');
-            refreshList();
-          } catch (_) {}
-          return;
-        }
-
-        const progress = 1 - remaining / durationMs;
-        const remSecs  = Math.ceil(remaining / 1000);
-        const m        = Math.floor(remSecs / 60);
-        const s        = remSecs % 60;
-        const remStr   = `${m}:${s.toString().padStart(2, '0')}`;
-
+      timerTimeout = setTimeout(async () => {
+        timerTimeout = null;
         try {
-          await LiveActivities.update({
+          await LiveActivities.end({
             activityId,
-            state: {
-              title,
-              subtitle: subtitle ? `${subtitle} · ${remStr} left` : `${remStr} left`,
-              icon,
-              progress,
-              timerStart,
-              timerEnd,
-              ...getAppearance(),
-            },
+            finalState: { title, subtitle: 'Done!', progress: 1, icon, ...getAppearance() },
           });
-          log(`Timer update — ${remStr} remaining, progress=${progress.toFixed(2)}`, 'info');
+          log(`Timer ended — id=${activityId}`, 'ok');
+          refreshList();
         } catch (_) {}
-      }, 5000); // every 5 s — frequent enough to feel live, light on battery
+      }, durationMs);
     }
   } catch (e: any) {
     showResult('timer-result', `❌ ${e.message}`, false);

@@ -26,6 +26,7 @@
           <span id="activities-enabled" class="value pending">—</span>
         </div>
         <button id="btn-check">Check support</button>
+        <button id="btn-open-settings">⚙ Open Live Activity settings</button>
       </section>
 
       <!-- Start -->
@@ -45,6 +46,9 @@
         </label>
         <label>Icon (SF Symbol / drawable)
           <input id="in-icon" type="text" value="shippingbox.fill" />
+        </label>
+        <label>Chip text (Android 16+)
+          <input id="in-chip" type="text" value="3 stops" maxlength="20" />
         </label>
         <button id="btn-start" class="primary">▶ Start</button>
         <div id="start-result" class="result hidden"></div>
@@ -77,11 +81,19 @@
         <label>Progress bar height: <span id="bar-height-val">8</span> px
           <input id="in-bar-height" type="range" min="2" max="20" value="8" />
         </label>
-        <label>Timer bar direction
-          <select id="in-timer-direction">
-            <option value="down">Drain ← (starts full, counts down)</option>
-            <option value="up">Fill → (starts empty, fills up)</option>
-          </select>
+      </section>
+
+      <!-- Shared appearance (Android) -->
+      <section class="card">
+        <h2>Appearance (Android)</h2>
+        <p class="hint">Applied to <strong>Start</strong>, <strong>Update</strong>, <strong>End</strong> and <strong>Start Timer</strong>. Maps to <code>accentColor</code> (icon tint + progress bar). The icon fields above take a drawable name from your app on Android; unknown names fall back to the app icon.</p>
+        <div class="color-grid">
+          <label>Accent
+            <input id="in-accent-color" type="color" value="#6750a4" />
+          </label>
+        </div>
+        <label class="check-row">
+          <input id="in-use-accent" type="checkbox" checked /> Apply accent color
         </label>
       </section>
 
@@ -102,6 +114,9 @@
         </label>
         <label>Icon (SF Symbol / drawable)
           <input id="in-update-icon" type="text" value="checkmark.circle.fill" />
+        </label>
+        <label>Chip text (Android 16+)
+          <input id="in-update-chip" type="text" value="1 stop" maxlength="20" />
         </label>
         <label>Alert title (iOS only)
           <input id="in-alert-title" type="text" value="Order update" />
@@ -125,7 +140,7 @@
         <label>Final subtitle
           <input id="in-end-subtitle" type="text" value="Enjoy your order" />
         </label>
-        <label>Dismissal policy (iOS)
+        <label>Dismissal policy
           <select id="in-dismissal">
             <option value="default">default</option>
             <option value="immediate">immediate</option>
@@ -138,8 +153,8 @@
 
       <!-- Timer demo -->
       <section class="card">
-        <h2>Timer (iOS auto-countdown)</h2>
-        <p class="hint">Sets <code>timerEnd</code> — the widget counts down and animates the progress bar automatically. No JS updates needed.</p>
+        <h2>Timer (auto-countdown)</h2>
+        <p class="hint">Sets <code>timerStart</code> + <code>timerEnd</code> — the countdown text and progress bar animate natively on both platforms. No JS updates needed.</p>
         <label>Duration (seconds)
           <select id="in-timer-duration">
             <option value="150">2:30 min</option>
@@ -163,7 +178,13 @@
             <option value="shippingbox.fill">📦 shippingbox.fill</option>
           </select>
         </label>
-        <p class="hint">Uses the shared <strong>Appearance (iOS)</strong> settings above.</p>
+        <label>Progress bar direction (<code>timerCountsDown</code>)
+          <select id="in-timer-direction">
+            <option value="up">Fill → starts empty, fills as time passes</option>
+            <option value="down">Countdown ← starts full, drains as time runs out</option>
+          </select>
+        </label>
+        <p class="hint">Uses the shared <strong>Appearance</strong> settings above. Android shows the countdown in the notification and status-bar chip and moves the progress bar natively.</p>
         <button id="btn-start-timer" class="primary">▶ Start Timer Activity</button>
         <div id="timer-result" class="result hidden"></div>
       </section>

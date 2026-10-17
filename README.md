@@ -1,6 +1,8 @@
 # @ciabosoftwaresolutions/capacitor-live-activities
 
-Capacitor plugin for **iOS Live Activities** (Dynamic Island + Lock Screen) and **Android Live Updates** (persistent status-bar chip, Android 16+, with a sticky notification fallback on Android 13–15).
+Capacitor plugin for **iOS Live Activities** (Dynamic Island + Lock Screen) and **Android [Live Updates](https://developer.android.com/develop/ui/compose/notifications/live-update)** (status-bar chip, pinned shade and lock screen card on Android 16+, with a sticky notification fallback on older versions).
+
+> **Upgrading from 0.x?** See the [CHANGELOG](CHANGELOG.md) — 2.0.0 rewrites the Android side on the official Live Updates API.
 
 [![npm version](https://img.shields.io/npm/v/@ciabosoftwaresolutions/capacitor-live-activities)](https://www.npmjs.com/package/@ciabosoftwaresolutions/capacitor-live-activities)
 [![npm downloads](https://img.shields.io/npm/dm/@ciabosoftwaresolutions/capacitor-live-activities)](https://www.npmjs.com/package/@ciabosoftwaresolutions/capacitor-live-activities)
@@ -34,18 +36,30 @@ If this plugin saves you time, consider buying us a coffee ☕
   </tr>
 </table>
 
-### Android — Live Updates & progress
+### Android — Live Updates (Android 16+)
+
+Promoted to a real Live Update: pinned at the top of the shade, shown on the lock screen, and as a status-bar chip.
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="docs/images/android-progress-start.png" alt="Android progress start" width="240"/><br/><sub><b>Order started</b></sub></td>
-    <td align="center" width="33%"><img src="docs/images/android-progress-almost.png" alt="Android progress almost" width="240"/><br/><sub><b>Progress update</b></sub></td>
-    <td align="center" width="33%"><img src="docs/images/android-progress-delivered.png" alt="Android delivered" width="240"/><br/><sub><b>Final state</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/android-shade-order-start.webp" alt="Android Live Update started in the shade" width="240"/><br/><sub><b>Order started</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/android-shade-order-update.webp" alt="Android Live Update progress with accent color" width="240"/><br/><sub><b>Progress update + <code>accentColor</code></b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/android-shade-order-delivered.webp" alt="Android final state" width="240"/><br/><sub><b>Final state after <code>end()</code></b></sub></td>
   </tr>
   <tr>
-    <td align="center" width="33%"><img src="docs/images/android-timer-1.png" alt="Android timer" width="240"/><br/><sub><b>Countdown timer</b></sub></td>
-    <td align="center" width="33%"><img src="docs/images/android-timer-2.png" alt="Android timer updating" width="240"/><br/><sub><b>Timer updating</b></sub></td>
-    <td align="center" width="33%"></td>
+    <td align="center" width="33%"><img src="docs/images/android-lock-order-start.webp" alt="Android Live Update on the lock screen" width="240"/><br/><sub><b>Lock screen</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/android-lock-order-update.webp" alt="Android Live Update update on the lock screen" width="240"/><br/><sub><b>Lock screen update</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/android-lock-order-delivered.webp" alt="Android final state on the lock screen" width="240"/><br/><sub><b>Ended — no longer pinned</b></sub></td>
+  </tr>
+</table>
+
+### Android — auto-countdown timer (no JS updates needed)
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/images/android-chip-timer.webp" alt="Android status-bar chip countdown" width="240"/><br/><sub><b>Status-bar chip countdown</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/android-headsup-timer.webp" alt="Android timer notification" width="240"/><br/><sub><b>Countdown + native progress</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/android-lock-timer.webp" alt="Android timer on the lock screen" width="240"/><br/><sub><b>Lock screen countdown</b></sub></td>
   </tr>
 </table>
 
@@ -59,8 +73,9 @@ If this plugin saves you time, consider buying us a coffee ☕
 | Live Activity / Live Update | ✅ iOS 16.2+ (runtime) | ✅ Android 16+ (API 36) |
 | Graceful fallback on older OS | ✅ `isSupported()` → false | ✅ Sticky notification |
 | Dynamic Island | ✅ iPhone 14 Pro+ | — |
-| Lock Screen banner | ✅ | — |
-| Status-bar chip | — | ✅ |
+| Lock Screen banner | ✅ | ✅ Android 16+ |
+| Status-bar chip | — | ✅ Android 16+ |
+| Live countdown timer (`timerEnd`) | ✅ | ✅ |
 | App-driven updates | ✅ | ✅ |
 | Push-driven updates (server → device) | ✅ APNs — no Firebase needed | ✅ FCM — optional, see below |
 
@@ -101,7 +116,8 @@ Your server  ──POST──▶  APNs / FCM  ──▶  Live Activity UI
 | Capacitor | 8.0 |
 | iOS deployment target | 13.0 (Live Activities activate at runtime on 16.2+) |
 | Android `minSdkVersion` | 23 |
-| Android `compileSdkVersion` | 35+ |
+| Android `compileSdkVersion` | 36+ |
+| `androidx.core` | 1.17.0+ (pulled in by the plugin) |
 | Java | 21 |
 | Node | 18+ |
 
@@ -238,20 +254,53 @@ Your server uses these three values plus the `.p8` file to sign JWT tokens for A
 
 ## Android setup
 
+On Android the plugin posts [Live Updates](https://developer.android.com/develop/ui/compose/notifications/live-update) — promoted ongoing notifications built with `NotificationCompat.ProgressStyle` and `setRequestPromotedOngoing(true)`. On Android 16+ they are pinned at the top of the shade, shown on the lock screen and as a status-bar chip. On Android 15 and below the same notification shows as a regular sticky notification.
+
 ### 1. Request notification permission at runtime (Android 13+)
 
 ```typescript
-import { Capacitor } from '@capacitor/core';
-
-if (Capacitor.getPlatform() === 'android') {
-  // Use your preferred permission library or the Capacitor Permissions API
-  await Notification.requestPermission();
-}
+const { notifications } = await LiveActivities.requestPermissions();
 ```
+
+The `POST_PROMOTED_NOTIFICATIONS` permission Live Updates need is declared by the plugin's manifest and granted at install — nothing to add.
 
 ### 2. compileSdkVersion
 
-To use the Android 16 Live Updates chip (`FLAG_LIVE_UPDATE`), set `compileSdkVersion = 36` in your app's `android/variables.gradle`. The plugin falls back to a standard sticky notification automatically on older versions.
+Set `compileSdkVersion = 36` (Capacitor 8 default) in your app's `android/variables.gradle`.
+
+### 3. Users can turn Live Updates off
+
+Users can disable Live Updates per app. `areActivitiesEnabled()` reflects that on Android 16+; when it's `false`, `start()` still posts a regular notification. Send the user to the right settings screen with:
+
+```typescript
+const { enabled } = await LiveActivities.areActivitiesEnabled();
+if (!enabled) await LiveActivities.openSettings();
+```
+
+### 4. Android-only state fields
+
+| Field | Effect |
+|---|---|
+| `shortCriticalText` | Text in the status-bar chip, e.g. `"5 min"`. Under 7 characters is always fully shown. |
+| `accentColor` | Notification accent and progress bar color, e.g. `"#6750a4"`. |
+| `icon` | Name of a drawable in your app (e.g. `"ic_delivery"`), used as the small icon and in the chip. Use a monochrome drawable; falls back to the app icon. |
+
+`title`, `subtitle`, `progress` and `timerEnd`/`timerStart`/`timerCountsDown` work as on iOS. A timer shows a live countdown in the notification and chip, and the plugin moves the progress bar natively (up to once a second) while the app process is alive. On Android the timer bar fills left to right unless `timerCountsDown: true`.
+
+### 5. Checking it is a Live Update
+
+`start()` and `update()` resolve with `liveUpdate: true` when Android 16+ accepted the notification as a Live Update. On the device you'll see a chip in the status bar next to the clock, and the card pinned at the top of the shade and expanded on the lock screen. A plain notification has neither.
+
+```typescript
+const { activityId, liveUpdate } = await LiveActivities.start({ ... });
+if (liveUpdate === false) {
+  // Android < 16, or the user turned Live Updates off — offer openSettings()
+}
+```
+
+If the user swipes the Live Update away, `activityStateChanged` fires with `activityState: 'dismissed'`. Stop sending updates for that activity, as Google's guidelines ask.
+
+Live Updates must stay eligible for promotion, so the plugin never sets `setColorized`, custom `RemoteViews` or group summaries, and its channel is `IMPORTANCE_DEFAULT`.
 
 ---
 
@@ -552,7 +601,7 @@ The default widget renders **icon · title · subtitle · progress bar** using a
 
 ### Built-in colors & sizing — no Swift needed
 
-You can restyle the default widget entirely from JavaScript by passing these `state` fields. All are optional and iOS-only (Android ignores them gracefully):
+You can restyle the default widget entirely from JavaScript by passing these `state` fields. All are optional and iOS-only (Android ignores them; use `accentColor` there):
 
 ```typescript
 await LiveActivities.start({
@@ -605,6 +654,7 @@ The **compact** presentation (the small pill around the camera) is deliberately 
 
 * [`isSupported()`](#issupported)
 * [`areActivitiesEnabled()`](#areactivitiesenabled)
+* [`openSettings()`](#opensettings)
 * [`start(...)`](#start)
 * [`update(...)`](#update)
 * [`end(...)`](#end)
@@ -642,8 +692,30 @@ to a sticky notification.
 areActivitiesEnabled() => any
 ```
 
-iOS only — returns true if the user has Live Activities enabled for this app
-in Settings. Always true on Android.
+Returns true if the user allows Live Activities for this app.
+
+- **iOS**: the Live Activities toggle in Settings.
+- **Android**: notifications are enabled and, on Android 16+, Live Updates
+  are allowed for the app (`canPostPromotedNotifications`). When false on
+  Android 16+, `start()` still posts a regular sticky notification.
+
+**Returns:** <code>any</code>
+
+--------------------
+
+
+### openSettings()
+
+```typescript
+openSettings() => any
+```
+
+Opens the system settings screen where the user can turn Live Activities /
+Live Updates back on.
+
+- **iOS**: the app's page in Settings.
+- **Android 16+**: the app's Live Updates (notification promotion) settings.
+- **Android 15 and below**: the app's notification settings.
 
 **Returns:** <code>any</code>
 
@@ -772,8 +844,10 @@ addListener(eventName: 'activityStateChanged' | 'pushTokenUpdated' | 'pushToStar
 
 Subscribe to Live Activity events.
 
-- **`activityStateChanged`** — iOS only. Fired when the system changes the
-  state of a Live Activity (e.g. the user dismisses it from the Lock Screen).
+- **`activityStateChanged`** — Fired when the system changes the state of a
+  Live Activity (e.g. the user dismisses it from the Lock Screen). On Android
+  this fires with `dismissed` when the user swipes the Live Update away; stop
+  pushing updates for that activity.
   Payload: `{ activityId: string, activityState: 'active' | 'ended' | 'dismissed' }`
 
 - **`pushTokenUpdated`** — iOS only. Fired when the per-activity ActivityKit
@@ -833,22 +907,32 @@ Keep this small; use `state` for anything that updates.
 
 Dynamic data for a Live Activity — can be pushed via `update()` at any time.
 
-| Prop                    | Type                 | Description                                                                                                                                                                                                                                                                                                                                            |
-| ----------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **`title`**             | <code>string</code>  | Primary headline shown on the Lock Screen / Dynamic Island.                                                                                                                                                                                                                                                                                            |
-| **`subtitle`**          | <code>string</code>  | Secondary line of text.                                                                                                                                                                                                                                                                                                                                |
-| **`progress`**          | <code>number</code>  | Optional progress value between 0.0 and 1.0.                                                                                                                                                                                                                                                                                                           |
-| **`icon`**              | <code>string</code>  | Optional SF Symbol name (iOS) or Android drawable name for a status icon.                                                                                                                                                                                                                                                                              |
-| **`backgroundColor`**   | <code>string</code>  | iOS only — hex color string for the activity background tint. Applied to the Lock Screen banner and expanded Dynamic Island background. Accepts 6-digit hex with or without `#` prefix, e.g. `"#1a1a2e"` or `"1a1a2e"`. Defaults to a dark semi-transparent fill when omitted.                                                                         |
-| **`progressColor`**     | <code>string</code>  | iOS only — hex color string for the progress bar, progress ring and timer bar. Defaults to white when omitted.                                                                                                                                                                                                                                         |
-| **`textColor`**         | <code>string</code>  | iOS only — hex color string for title and subtitle text. Defaults to white when omitted.                                                                                                                                                                                                                                                               |
-| **`iconColor`**         | <code>string</code>  | iOS only — hex color string for the SF Symbol icon. Defaults to white when omitted.                                                                                                                                                                                                                                                                    |
-| **`keylineTint`**       | <code>string</code>  | iOS only — hex color string for the keyline (the thin colored outline that wraps the **expanded** Dynamic Island). A common way to give the island a branded, "full-length" colored glow. Defaults to no keyline when omitted.                                                                                                                         |
-| **`progressBarHeight`** | <code>number</code>  | iOS only — thickness in points of the linear progress bar shown on the Lock Screen and in the expanded Dynamic Island bottom region. Range 2–20. Defaults to the system thickness (~4) when omitted.                                                                                                                                                   |
-| **`progressBarRadius`** | <code>number</code>  | iOS only — corner radius in points applied to the linear progress bar when `progressBarHeight` is set. Defaults to half the bar height (pill shape).                                                                                                                                                                                                   |
-| **`timerEnd`**          | <code>number</code>  | iOS only — Unix timestamp (seconds since epoch) when the timer ends. When set, the widget renders a live countdown and an auto-animating progress bar. The system updates the display every second automatically — no `update()` calls needed from JavaScript. Example — start a 2m 30s countdown: ```typescript timerEnd: Date.now() / 1000 + 150 ``` |
-| **`timerStart`**        | <code>number</code>  | iOS only — Unix timestamp when the timer started. Used alongside `timerEnd` to compute the progress ring fill. Defaults to `Date.now()` at the moment `start()` is called if omitted.                                                                                                                                                                  |
-| **`timerCountsDown`**   | <code>boolean</code> | iOS only — direction of the timer progress bar/ring. - `true` (default) — bar starts **full** and drains right-to-left as time runs out. - `false` — bar starts **empty** and fills left-to-right as time elapses. The countdown **text** always shows remaining time regardless of this setting.                                                      |
+| Prop                    | Type                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`title`**             | <code>string</code>  | Primary headline shown on the Lock Screen / Dynamic Island.                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **`subtitle`**          | <code>string</code>  | Secondary line of text.                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **`progress`**          | <code>number</code>  | Optional progress value between 0.0 and 1.0.                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **`icon`**              | <code>string</code>  | Optional SF Symbol name (iOS) or Android drawable resource name for a status icon. On Android this becomes the notification small icon, which is also what the Live Update status-bar chip shows — use a monochrome drawable. Falls back to the app icon when the name doesn't resolve.                                                                                                                                                                                             |
+| **`shortCriticalText`** | <code>string</code>  | Android 16+ only — short text shown in the Live Update status-bar chip (e.g. `"Arriving"`, `"5 min"`). Keep it under 7 characters to guarantee it is fully visible; the chip is at most 96dp wide.                                                                                                                                                                                                                                                                                  |
+| **`accentColor`**       | <code>string</code>  | Android only — hex color string (e.g. `"#6750a4"`) used as the notification accent color and the Live Update progress bar color. Kept separate from the iOS colors, which usually target a dark Lock Screen background.                                                                                                                                                                                                                                                             |
+| **`backgroundColor`**   | <code>string</code>  | iOS only — hex color string for the activity background tint. Applied to the Lock Screen banner and expanded Dynamic Island background. Accepts 6-digit hex with or without `#` prefix, e.g. `"#1a1a2e"` or `"1a1a2e"`. Defaults to a dark semi-transparent fill when omitted.                                                                                                                                                                                                      |
+| **`progressColor`**     | <code>string</code>  | iOS only — hex color string for the progress bar, progress ring and timer bar. Defaults to white when omitted.                                                                                                                                                                                                                                                                                                                                                                      |
+| **`textColor`**         | <code>string</code>  | iOS only — hex color string for title and subtitle text. Defaults to white when omitted.                                                                                                                                                                                                                                                                                                                                                                                            |
+| **`iconColor`**         | <code>string</code>  | iOS only — hex color string for the SF Symbol icon. Defaults to white when omitted.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **`keylineTint`**       | <code>string</code>  | iOS only — hex color string for the keyline (the thin colored outline that wraps the **expanded** Dynamic Island). A common way to give the island a branded, "full-length" colored glow. Defaults to no keyline when omitted.                                                                                                                                                                                                                                                      |
+| **`progressBarHeight`** | <code>number</code>  | iOS only — thickness in points of the linear progress bar shown on the Lock Screen and in the expanded Dynamic Island bottom region. Range 2–20. Defaults to the system thickness (~4) when omitted.                                                                                                                                                                                                                                                                                |
+| **`progressBarRadius`** | <code>number</code>  | iOS only — corner radius in points applied to the linear progress bar when `progressBarHeight` is set. Defaults to half the bar height (pill shape).                                                                                                                                                                                                                                                                                                                                |
+| **`timerEnd`**          | <code>number</code>  | Unix timestamp (seconds since epoch) when the timer ends. iOS: the widget renders a live countdown and an auto-animating progress bar. Android: the notification and Live Update chip show a live countdown, and the plugin advances the progress bar natively (when `timerStart` is set and `progress` is not) until the app process is killed. Either way no `update()` calls are needed. Example — start a 2m 30s countdown: ```typescript timerEnd: Date.now() / 1000 + 150 ``` |
+| **`timerStart`**        | <code>number</code>  | Unix timestamp when the timer started. Used alongside `timerEnd` to compute the progress ring fill. iOS defaults to `Date.now()` at the moment `start()` is called if omitted; Android shows no progress bar for a timer unless this (or `progress`) is set.                                                                                                                                                                                                                        |
+| **`timerCountsDown`**   | <code>boolean</code> | Direction of the timer progress bar/ring. - `true` — bar starts **full** and drains right-to-left as time runs out. Default on iOS. - `false` — bar starts **empty** and fills left-to-right as time elapses. Default on Android, matching platform convention. The countdown **text** always shows remaining time regardless of this setting.                                                                                                                                      |
+
+
+#### StartResult
+
+| Prop             | Type                 | Description                                                                                                                                                                                                                                                    |
+| ---------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`activityId`** | <code>string</code>  |                                                                                                                                                                                                                                                                |
+| **`liveUpdate`** | <code>boolean</code> | Android only — true when Android 16+ accepted the notification as a Live Update (status-bar chip, pinned in the shade). False on older Android, when the user turned Live Updates off for the app, or when the notification is not eligible. Undefined on iOS. |
 
 
 #### UpdateOptions
@@ -861,22 +945,29 @@ Dynamic data for a Live Activity — can be pushed via `update()` at any time.
 | **`alertBody`**  | <code>string</code>                                             |                                                                                                            |
 
 
+#### UpdateResult
+
+| Prop             | Type                 | Description                                                                                     |
+| ---------------- | -------------------- | ----------------------------------------------------------------------------------------------- |
+| **`liveUpdate`** | <code>boolean</code> | Android only — see {@link <a href="#startresult">StartResult.liveUpdate</a>}. Undefined on iOS. |
+
+
 #### EndOptions
 
-| Prop                  | Type                                                            | Description                                                                                                                                                                           |
-| --------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`activityId`**      | <code>string</code>                                             |                                                                                                                                                                                       |
-| **`finalState`**      | <code><a href="#liveactivitystate">LiveActivityState</a></code> | Final state to display before the activity is dismissed. If omitted the last known state is used.                                                                                     |
-| **`dismissalPolicy`** | <code>'immediate' \| 'default' \| 'after-delay'</code>          | iOS only — dismiss the activity immediately or leave it on screen for a short period so the user sees the final state. 'immediate' \| 'default' \| 'after-delay' (default: 'default') |
+| Prop                  | Type                                                            | Description                                                                                                                                                                                                                                                                                     |
+| --------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`activityId`**      | <code>string</code>                                             |                                                                                                                                                                                                                                                                                                 |
+| **`finalState`**      | <code><a href="#liveactivitystate">LiveActivityState</a></code> | Final state to display before the activity is dismissed. If omitted the last known state is used.                                                                                                                                                                                               |
+| **`dismissalPolicy`** | <code>'immediate' \| 'default' \| 'after-delay'</code>          | Dismiss the activity immediately or leave it on screen so the user sees the final state. 'immediate' \| 'default' \| 'after-delay' (default: 'default') Android: `'immediate'` removes the notification; otherwise, when `finalState` is given, it stays as a regular dismissible notification. |
 
 
 #### ActivityInfo
 
-| Prop               | Type                                            | Description                                                                    |
-| ------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------ |
-| **`activityId`**   | <code>string</code>                             |                                                                                |
-| **`activityType`** | <code>string</code>                             |                                                                                |
-| **`state`**        | <code>'active' \| 'ended' \| 'dismissed'</code> | 'active' \| 'ended' \| 'dismissed' — iOS only; Android always returns 'active' |
+| Prop               | Type                                            | Description                                                                                       |
+| ------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **`activityId`**   | <code>string</code>                             |                                                                                                   |
+| **`activityType`** | <code>string</code>                             |                                                                                                   |
+| **`state`**        | <code>'active' \| 'ended' \| 'dismissed'</code> | 'active' \| 'ended' \| 'dismissed' — iOS only; Android only lists active ones, so always 'active' |
 
 
 #### PushTokenResult

@@ -12,6 +12,10 @@ on:
           - patch
           - minor
           - major
+      version:
+        description: 'Exact version to release (e.g. 2.0.0). Overrides the bump type when set.'
+        required: false
+        type: string
 
 jobs:
   build-web:
@@ -52,7 +56,9 @@ jobs:
       - run: npm run build
 
       - name: Bump version
-        run: 'npm version ${{ github.event.inputs.release_type }} -m "chore: release v%s"'
+        env:
+          VERSION: ${{ github.event.inputs.version || github.event.inputs.release_type }}
+        run: 'npm version "$VERSION" -m "chore: release v%s"'
 
       - name: Push version commit and tag
         run: git push --follow-tags

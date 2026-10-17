@@ -14,6 +14,7 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "areActivitiesEnabled", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "end", returnType: CAPPluginReturnPromise),
@@ -84,6 +85,18 @@ public class LiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve(["enabled": LiveActivityManager.shared.areActivitiesEnabled()])
         } else {
             call.resolve(["enabled": false])
+        }
+    }
+
+    // MARK: - openSettings
+
+    @objc func openSettings(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let url = URL(string: UIApplication.openSettingsURLString) else {
+                call.reject("Unable to open settings")
+                return
+            }
+            UIApplication.shared.open(url) { _ in call.resolve() }
         }
     }
 

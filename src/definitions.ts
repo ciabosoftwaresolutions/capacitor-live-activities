@@ -21,8 +21,25 @@ export interface LiveActivityState {
   subtitle?: string;
   /** Optional progress value between 0.0 and 1.0. */
   progress?: number;
-  /** Optional SF Symbol name (iOS) or Android drawable name for a status icon. */
+  /**
+   * Optional SF Symbol name (iOS) or Android drawable resource name for a status icon.
+   * On Android this becomes the notification small icon, which is also what the
+   * Live Update status-bar chip shows — use a monochrome drawable. Falls back to
+   * the app icon when the name doesn't resolve.
+   */
   icon?: string;
+  /**
+   * Android 16+ only — short text shown in the Live Update status-bar chip
+   * (e.g. `"Arriving"`, `"5 min"`). Keep it under 7 characters to guarantee it is
+   * fully visible; the chip is at most 96dp wide.
+   */
+  shortCriticalText?: string;
+  /**
+   * Android only — hex color string (e.g. `"#6750a4"`) used as the notification
+   * accent color and the Live Update progress bar color. Kept separate from the
+   * iOS colors, which usually target a dark Lock Screen background.
+   */
+  accentColor?: string;
   /**
    * iOS only — hex color string for the activity background tint.
    * Applied to the Lock Screen banner and expanded Dynamic Island background.
@@ -63,10 +80,12 @@ export interface LiveActivityState {
    */
   progressBarRadius?: number;
   /**
-   * iOS only — Unix timestamp (seconds since epoch) when the timer ends.
-   * When set, the widget renders a live countdown and an auto-animating
-   * progress bar. The system updates the display every second automatically —
-   * no `update()` calls needed from JavaScript.
+   * Unix timestamp (seconds since epoch) when the timer ends.
+   * iOS: the widget renders a live countdown and an auto-animating progress bar.
+   * Android: the notification and Live Update chip show a live countdown, and
+   * the plugin advances the progress bar natively (when `timerStart` is set and
+   * `progress` is not) until the app process is killed.
+   * Either way no `update()` calls are needed.
    *
    * Example — start a 2m 30s countdown:
    * ```typescript
@@ -75,15 +94,18 @@ export interface LiveActivityState {
    */
   timerEnd?: number;
   /**
-   * iOS only — Unix timestamp when the timer started.
+   * Unix timestamp when the timer started.
    * Used alongside `timerEnd` to compute the progress ring fill.
-   * Defaults to `Date.now()` at the moment `start()` is called if omitted.
+   * iOS defaults to `Date.now()` at the moment `start()` is called if omitted;
+   * Android shows no progress bar for a timer unless this (or `progress`) is set.
    */
   timerStart?: number;
   /**
-   * iOS only — direction of the timer progress bar/ring.
-   * - `true` (default) — bar starts **full** and drains right-to-left as time runs out.
+   * Direction of the timer progress bar/ring.
+   * - `true` — bar starts **full** and drains right-to-left as time runs out.
+   *   Default on iOS.
    * - `false` — bar starts **empty** and fills left-to-right as time elapses.
+   *   Default on Android, matching platform convention.
    * The countdown **text** always shows remaining time regardless of this setting.
    */
   timerCountsDown?: boolean;
@@ -120,11 +142,29 @@ export interface EndOptions {
    */
   finalState?: LiveActivityState;
   /**
-   * iOS only — dismiss the activity immediately or leave it on screen
-   * for a short period so the user sees the final state.
-   * 'immediate' | 'default' | 'after-delay'  (default: 'default')
+   * Dismiss the activity immediately or leave it on screen so the user sees
+   * the final state. 'immediate' | 'default' | 'after-delay'  (default: 'default')
+   *
+   * Android: `'immediate'` removes the notification; otherwise, when
+   * `finalState` is given, it stays as a regular dismissible notification.
    */
   dismissalPolicy?: 'immediate' | 'default' | 'after-delay';
+}
+
+export interface StartResult {
+  activityId: string;
+  /**
+   * Android only — true when Android 16+ accepted the notification as a Live
+   * Update (status-bar chip, pinned in the shade). False on older Android, when
+   * the user turned Live Updates off for the app, or when the notification is
+   * not eligible. Undefined on iOS.
+   */
+  liveUpdate?: boolean;
+}
+
+export interface UpdateResult {
+  /** Android only — see {@link StartResult.liveUpdate}. Undefined on iOS. */
+  liveUpdate?: boolean;
 }
 
 export interface PushTokenResult {
@@ -163,7 +203,7 @@ export interface PushToStartTokenUpdatedEvent {
 export interface ActivityInfo {
   activityId: string;
   activityType: string;
-  /** 'active' | 'ended' | 'dismissed' — iOS only; Android always returns 'active' */
+  /** 'active' | 'ended' | 'dismissed' — iOS only; Android only lists active ones, so always 'active' */
   state: 'active' | 'ended' | 'dismissed';
 }
 
@@ -183,21 +223,35 @@ export interface LiveActivitiesPlugin {
   isSupported(): Promise<{ supported: boolean }>;
 
   /**
-   * iOS only — returns true if the user has Live Activities enabled for this app
-   * in Settings. Always true on Android.
+   * Returns true if the user allows Live Activities for this app.
+   *
+   * - **iOS**: the Live Activities toggle in Settings.
+   * - **Android**: notifications are enabled and, on Android 16+, Live Updates
+   *   are allowed for the app (`canPostPromotedNotifications`). When false on
+   *   Android 16+, `start()` still posts a regular sticky notification.
    */
   areActivitiesEnabled(): Promise<{ enabled: boolean }>;
+
+  /**
+   * Opens the system settings screen where the user can turn Live Activities /
+   * Live Updates back on.
+   *
+   * - **iOS**: the app's page in Settings.
+   * - **Android 16+**: the app's Live Updates (notification promotion) settings.
+   * - **Android 15 and below**: the app's notification settings.
+   */
+  openSettings(): Promise<void>;
 
   /**
    * Start a new Live Activity / Live Update notification.
    * Resolves with an `activityId` you must store to call `update()` and `end()`.
    */
-  start(options: StartOptions): Promise<{ activityId: string }>;
+  start(options: StartOptions): Promise<StartResult>;
 
   /**
    * Push a state update to a running Live Activity.
    */
-  update(options: UpdateOptions): Promise<void>;
+  update(options: UpdateOptions): Promise<UpdateResult>;
 
   /**
    * End a Live Activity and optionally show a final state.
@@ -241,8 +295,10 @@ export interface LiveActivitiesPlugin {
   /**
    * Subscribe to Live Activity events.
    *
-   * - **`activityStateChanged`** — iOS only. Fired when the system changes the
-   *   state of a Live Activity (e.g. the user dismisses it from the Lock Screen).
+   * - **`activityStateChanged`** — Fired when the system changes the state of a
+   *   Live Activity (e.g. the user dismisses it from the Lock Screen). On Android
+   *   this fires with `dismissed` when the user swipes the Live Update away; stop
+   *   pushing updates for that activity.
    *   Payload: `{ activityId: string, activityState: 'active' | 'ended' | 'dismissed' }`
    *
    * - **`pushTokenUpdated`** — iOS only. Fired when the per-activity ActivityKit
